@@ -135,7 +135,8 @@ export const HomeTab = () => {
       }
 
       const data = await response.json();
-      setPreview({ definition: data.definition, tldr: data.tldr || '', example: data.example });
+      const example = Array.isArray(data.example) ? data.example.join(' ') : data.example;
+      setPreview({ definition: data.definition, tldr: data.tldr || '', example });
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to generate definition');
     } finally {
@@ -212,8 +213,15 @@ export const HomeTab = () => {
                 <p className="text-sm font-medium text-blue-600 dark:text-blue-400 mb-4">TLDR: {preview.tldr}</p>
               )}
               <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Example:</p>
-                <p className="text-gray-900 dark:text-white italic whitespace-pre-line">{preview.example.replace(/\. /g, '.\n')}</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Example:</p>
+                <ul className="space-y-3">
+                  {(Array.isArray(preview.example) ? preview.example : preview.example.split(/\. /).filter(Boolean).map((s, i, a) => s + (i < a.length - 1 ? '.' : ''))).map((s, i) => (
+                    <li key={i} className="flex gap-2 text-gray-900 dark:text-white italic">
+                      <span className="text-gray-400 select-none">•</span>
+                      <span>{s}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
             </div>
             <div className="flex gap-3">
@@ -262,8 +270,15 @@ export const HomeTab = () => {
                 )}
                 {expandedId === w.id && (
                   <div className="mt-3 bg-gray-50 dark:bg-gray-700 p-3 rounded">
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Example:</p>
-                    <p className="text-sm text-gray-900 dark:text-white italic whitespace-pre-line">{w.example_sentence.replace(/\. /g, '.\n')}</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">Example:</p>
+                    <ul className="space-y-3">
+                      {(Array.isArray(w.example_sentence) ? w.example_sentence : w.example_sentence.split(/\. /).filter(Boolean).map((s, i, a) => s + (i < a.length - 1 ? '.' : ''))).map((s, i) => (
+                        <li key={i} className="flex gap-2 text-sm text-gray-900 dark:text-white italic">
+                          <span className="text-gray-400 select-none">•</span>
+                          <span>{s}</span>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
                 )}
               </div>
