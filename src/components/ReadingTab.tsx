@@ -10,7 +10,7 @@ const READING_LIST = [
     author: "Orwell",
     title: "Essays (Everyman's)",
     description: "The complete political and cultural writings, indispensable",
-    url: "https://www.amazon.com/Essays-Everymans-Library-George-Orwell/dp/0375415033"
+    url: "https://oceanofpdf.com/authors/george-orwell/pdf-epub-a-collection-of-essays-download-63819147382/"
   },
   {
     type: "book",
