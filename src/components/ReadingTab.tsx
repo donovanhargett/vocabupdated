@@ -1,4 +1,7 @@
-import { BookOpen, FileText, Youtube, ExternalLink } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { BookOpen, FileText, Youtube, ExternalLink, Plus, Trash2, X } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
 
 const READING_LIST = [
   // ── BOOKS ──────────────────────────────────────────────────────────────────
@@ -14,21 +17,14 @@ const READING_LIST = [
     author: "Orwell",
     title: "The Road to Wigan Pier",
     description: "Class, poverty, and socialism examined with brutal honesty",
-    url: "https://www.amazon.com/Road-Wigan-Pier-George-Orwell/dp/0156767503"
+    url: "https://oceanofpdf.com/authors/george-orwell/pdf-epub-the-road-to-wigan-pier-download-46365530832/"
   },
   {
     type: "book",
     author: "Christopher Hitchens",
     title: "Arguably: Essays",
     description: "Every sentence earns its place — the best vocabulary workout in modern political writing",
-    url: "https://www.amazon.com/Arguably-Essays-Christopher-Hitchens/dp/1455502782"
-  },
-  {
-    type: "book",
-    author: "Christopher Hitchens",
-    title: "god is Not Great",
-    description: "Dense, polemical, forces you to grapple with precise philosophical and theological vocabulary",
-    url: "https://www.amazon.com/God-Not-Great-Religion-Everything/dp/0446697966"
+    url: "https://oceanofpdf.com/authors/christopher-hitchens/pdf-epub-arguably-selected-essays-download-55242380030/"
   },
   {
     type: "book",
@@ -49,7 +45,7 @@ const READING_LIST = [
     author: "Alexis de Tocqueville",
     title: "Democracy in America",
     description: "The sharpest outside diagnosis of American society ever written — vocabulary and worldview both",
-    url: "https://www.amazon.com/Democracy-America-Alexis-Tocqueville/dp/0226805360"
+    url: "https://oceanofpdf.com/authors/alexis-de-tocqueville/pdf-democracy-in-america-download-12079788302/"
   },
   {
     type: "book",
@@ -70,7 +66,7 @@ const READING_LIST = [
     author: "Nassim Taleb",
     title: "The Black Swan",
     description: "Combative, idiosyncratic prose packed with uncommon vocabulary — genuinely changes how you see risk and uncertainty",
-    url: "https://www.amazon.com/Black-Swan-Improbable-Robustness-Fragility/dp/081297381X"
+    url: "https://oceanofpdf.com/pdf-epub-the-black-swan-the-impact-of-the-highly-improbable-download/"
   },
 
   // ── ARTICLES ───────────────────────────────────────────────────────────────
@@ -165,56 +161,220 @@ const TYPE_CONFIG = {
   },
 };
 
+interface UserEntry {
+  id: string;
+  type: string;
+  author: string;
+  title: string;
+  description: string;
+  url: string;
+}
+
+const emptyForm = { type: 'book', author: '', title: '', description: '', url: '' };
+
 export const ReadingTab = () => {
-  const sections = (["book", "article", "youtube"] as const).map((type) => ({
+  const { user } = useAuth();
+  const [userEntries, setUserEntries] = useState<UserEntry[]>([]);
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState(emptyForm);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    loadUserEntries();
+  }, []);
+
+  const loadUserEntries = async () => {
+    const { data } = await supabase
+      .from('reading_list')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (data) setUserEntries(data);
+  };
+
+  const handleAdd = async () => {
+    if (!form.title.trim() || !form.url.trim()) return;
+    setSaving(true);
+    const { data, error } = await supabase.from('reading_list').insert({
+      user_id: user?.id,
+      type: form.type,
+      author: form.author.trim(),
+      title: form.title.trim(),
+      description: form.description.trim(),
+      url: form.url.trim(),
+    }).select().single();
+
+    if (!error && data) {
+      setUserEntries([data, ...userEntries]);
+      setForm(emptyForm);
+      setShowForm(false);
+    }
+    setSaving(false);
+  };
+
+  const handleDelete = async (id: string) => {
+    await supabase.from('reading_list').delete().eq('id', id);
+    setUserEntries(userEntries.filter(e => e.id !== id));
+  };
+
+  const sections = (['book', 'article', 'youtube'] as const).map((type) => ({
     type,
     ...TYPE_CONFIG[type],
-    items: READING_LIST.filter((item) => item.type === type),
+    curatedItems: READING_LIST.filter((item) => item.type === type),
+    userItems: userEntries.filter((item) => item.type === type),
   }));
 
   return (
     <div className="max-w-4xl mx-auto">
-      <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Reading List</h2>
-      <p className="text-gray-600 dark:text-gray-400 mb-8">
-        Curated books, articles, and videos for building vocabulary and sharpening how you think.
-      </p>
+      <div className="flex items-start justify-between mb-8">
+        <div>
+          <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Reading List</h2>
+          <p className="text-gray-600 dark:text-gray-400">
+            Curated books, articles, and videos for building vocabulary and sharpening how you think.
+          </p>
+        </div>
+        <button
+          onClick={() => setShowForm(!showForm)}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors shrink-0"
+        >
+          <Plus size={16} />
+          Add
+        </button>
+      </div>
+
+      {showForm && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-5 mb-8 border border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold text-gray-900 dark:text-white">Add to Reading List</h3>
+            <button onClick={() => { setShowForm(false); setForm(emptyForm); }} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+              <X size={18} />
+            </button>
+          </div>
+          <div className="grid grid-cols-1 gap-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Type</label>
+                <select
+                  value={form.type}
+                  onChange={(e) => setForm({ ...form, type: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="book">Book</option>
+                  <option value="article">Article</option>
+                  <option value="youtube">Video</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Author</label>
+                <input
+                  type="text"
+                  value={form.author}
+                  onChange={(e) => setForm({ ...form, author: e.target.value })}
+                  placeholder="Author name"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Title *</label>
+              <input
+                type="text"
+                value={form.title}
+                onChange={(e) => setForm({ ...form, title: e.target.value })}
+                placeholder="Title"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">URL *</label>
+              <input
+                type="url"
+                value={form.url}
+                onChange={(e) => setForm({ ...form, url: e.target.value })}
+                placeholder="https://"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Description</label>
+              <input
+                type="text"
+                value={form.description}
+                onChange={(e) => setForm({ ...form, description: e.target.value })}
+                placeholder="Why it's worth reading"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+            <button
+              onClick={handleAdd}
+              disabled={saving || !form.title.trim() || !form.url.trim()}
+              className="w-full py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium rounded-lg transition-colors text-sm"
+            >
+              {saving ? 'Saving...' : 'Save'}
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="space-y-10">
-        {sections.map(({ type, label, icon: Icon, accent, badge, iconColor, items }) => (
-          <div key={type}>
-            <div className="flex items-center gap-2 mb-4">
-              <Icon size={20} className={iconColor} />
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white">{label}</h3>
-              <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${badge}`}>{items.length}</span>
+        {sections.map(({ type, label, icon: Icon, badge, iconColor, curatedItems, userItems }) => {
+          const totalCount = curatedItems.length + userItems.length;
+          const allItems = [
+            ...curatedItems.map(item => ({ ...item, isUser: false, id: undefined as string | undefined })),
+            ...userItems.map(item => ({ ...item, isUser: true })),
+          ];
+          return (
+            <div key={type}>
+              <div className="flex items-center gap-2 mb-3">
+                <Icon size={20} className={iconColor} />
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white">{label}</h3>
+                <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${badge}`}>{totalCount}</span>
+              </div>
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-100 dark:border-gray-700">
+                      <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-[45%]">Title</th>
+                      <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-[30%]">Author</th>
+                      <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Link</th>
+                      <th className="w-8"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {allItems.map((item, i) => (
+                      <tr
+                        key={item.id ?? i}
+                        className="border-b border-gray-50 dark:border-gray-700/50 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors"
+                      >
+                        <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">{item.title}</td>
+                        <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{item.author}</td>
+                        <td className="px-4 py-3">
+                          <a
+                            href={item.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline"
+                          >
+                            Open <ExternalLink size={13} />
+                          </a>
+                        </td>
+                        <td className="px-2 py-3">
+                          {item.isUser && (
+                            <button
+                              onClick={() => handleDelete(item.id!)}
+                              className="text-gray-300 hover:text-red-500 dark:text-gray-600 dark:hover:text-red-400 transition-colors"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
-            <div className="space-y-3">
-              {items.map((item, i) => (
-                <a
-                  key={i}
-                  href={item.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={`block bg-white dark:bg-gray-800 rounded-lg shadow p-4 border-l-4 ${accent} hover:shadow-md transition-shadow group`}
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-baseline gap-2 mb-1">
-                        <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide shrink-0">
-                          {item.author}
-                        </span>
-                      </div>
-                      <p className="font-semibold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                        {item.title}
-                      </p>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{item.description}</p>
-                    </div>
-                    <ExternalLink size={16} className="text-gray-400 group-hover:text-blue-500 transition-colors shrink-0 mt-1" />
-                  </div>
-                </a>
-              ))}
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
