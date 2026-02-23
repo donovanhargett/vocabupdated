@@ -1,7 +1,28 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Plus, Trash2, RefreshCw, Check } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+
+interface DailyContent {
+  word: string;
+  word_definition: string;
+  word_example: string;
+  idiom: string;
+  idiom_explanation: string;
+  idiom_example: string;
+}
+
+const getContentDate = () => {
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  // At 11:59pm, advance to the next day's content
+  if (now.getHours() === 23 && now.getMinutes() >= 59) {
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return `${tomorrow.getFullYear()}-${pad(tomorrow.getMonth() + 1)}-${pad(tomorrow.getDate())}`;
+  }
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+};
 
 interface VocabWord {
   id: string;
@@ -18,10 +39,40 @@ export const HomeTab = () => {
   const [words, setWords] = useState<VocabWord[]>([]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [preview, setPreview] = useState<{ definition: string; example: string } | null>(null);
+  const [dailyContent, setDailyContent] = useState<DailyContent | null>(null);
+  const [dailyLoading, setDailyLoading] = useState(false);
+  const contentDateRef = useRef(getContentDate());
   const { user } = useAuth();
+
+  const loadDailyContent = async (date: string) => {
+    setDailyLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-daily-content`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${session?.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ date }),
+        }
+      );
+      if (response.ok) {
+        const data = await response.json();
+        setDailyContent(data);
+      }
+    } catch (err) {
+      console.error('Failed to load daily content:', err);
+    } finally {
+      setDailyLoading(false);
+    }
+  };
 
   useEffect(() => {
     loadWords();
+    loadDailyContent(contentDateRef.current);
 
     const channel = supabase
       .channel('vocab_changes')
@@ -38,6 +89,18 @@ export const HomeTab = () => {
       supabase.removeChannel(channel);
     };
   }, [user]);
+
+  // Check every minute for the 11:59pm daily rollover
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const newDate = getContentDate();
+      if (newDate !== contentDateRef.current) {
+        contentDateRef.current = newDate;
+        loadDailyContent(newDate);
+      }
+    }, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   const loadWords = async () => {
     const { data } = await supabase
@@ -208,6 +271,43 @@ export const HomeTab = () => {
             </div>
           </div>
         ))}
+      </div>
+      <div className="mt-12">
+        <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Daily Picks</h3>
+        {dailyLoading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {[0, 1].map(i => (
+              <div key={i} className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 animate-pulse">
+                <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mb-4" />
+                <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-1/2 mb-3" />
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full mb-2" />
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-4" />
+                <div className="h-14 bg-gray-100 dark:bg-gray-700/50 rounded" />
+              </div>
+            ))}
+          </div>
+        ) : dailyContent ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 border-l-4 border-blue-500">
+              <p className="text-xs font-semibold text-blue-500 uppercase tracking-wider mb-2">Word of the Day</p>
+              <h4 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">{dailyContent.word}</h4>
+              <p className="text-gray-700 dark:text-gray-300 mb-4">{dailyContent.word_definition}</p>
+              <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
+                <p className="text-sm text-gray-600 dark:text-gray-300 italic">"{dailyContent.word_example}"</p>
+              </div>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-3">à la Michael Tracey</p>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 border-l-4 border-purple-500">
+              <p className="text-xs font-semibold text-purple-500 uppercase tracking-wider mb-2">Idiom of the Day</p>
+              <h4 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">"{dailyContent.idiom}"</h4>
+              <p className="text-gray-700 dark:text-gray-300 mb-4">{dailyContent.idiom_explanation}</p>
+              <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
+                <p className="text-sm text-gray-600 dark:text-gray-300 italic">"{dailyContent.idiom_example}"</p>
+              </div>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-3">à la David Sacks</p>
+            </div>
+          </div>
+        ) : null}
       </div>
     </div>
   );
