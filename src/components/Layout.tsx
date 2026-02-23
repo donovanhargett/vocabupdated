@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { Home, BookOpen, Library, Key, Moon, Sun, LogOut } from 'lucide-react';
+import { Home, BookOpen, Library, Key, Moon, Sun, LogOut, Star, Newspaper } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -17,6 +17,8 @@ export const Layout = ({ children, activeTab, onTabChange }: LayoutProps) => {
     { id: 'home', label: 'Home', icon: Home },
     { id: 'review', label: 'Review', icon: BookOpen },
     { id: 'reading', label: 'Reading', icon: Library },
+    { id: 'picks', label: 'My Picks', icon: Star },
+    { id: 'news', label: 'News', icon: Newspaper },
     { id: 'keys', label: 'Keys', icon: Key },
   ];
 

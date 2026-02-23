@@ -6,6 +6,8 @@ import { Layout } from './components/Layout';
 import { HomeTab } from './components/HomeTab';
 import { ReviewTab } from './components/ReviewTab';
 import { ReadingTab } from './components/ReadingTab';
+import { PreferencesTab } from './components/PreferencesTab';
+import { NewsTab } from './components/NewsTab';
 import { KeysTab } from './components/KeysTab';
 
 function AppContent() {
@@ -29,6 +31,8 @@ function AppContent() {
       {activeTab === 'home' && <HomeTab />}
       {activeTab === 'review' && <ReviewTab />}
       {activeTab === 'reading' && <ReadingTab />}
+      {activeTab === 'picks' && <PreferencesTab />}
+      {activeTab === 'news' && <NewsTab />}
       {activeTab === 'keys' && <KeysTab />}
     </Layout>
   );
