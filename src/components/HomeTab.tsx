@@ -28,6 +28,7 @@ interface VocabWord {
   id: string;
   word: string;
   definition: string;
+  tldr: string;
   example_sentence: string;
   created_at: string;
 }
@@ -38,7 +39,7 @@ export const HomeTab = () => {
   const [generating, setGenerating] = useState(false);
   const [words, setWords] = useState<VocabWord[]>([]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [preview, setPreview] = useState<{ definition: string; example: string } | null>(null);
+  const [preview, setPreview] = useState<{ definition: string; tldr: string; example: string } | null>(null);
   const [dailyContent, setDailyContent] = useState<DailyContent | null>(null);
   const [dailyLoading, setDailyLoading] = useState(false);
   const contentDateRef = useRef(getContentDate());
@@ -134,7 +135,7 @@ export const HomeTab = () => {
       }
 
       const data = await response.json();
-      setPreview({ definition: data.definition, example: data.example });
+      setPreview({ definition: data.definition, tldr: data.tldr || '', example: data.example });
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to generate definition');
     } finally {
@@ -151,6 +152,7 @@ export const HomeTab = () => {
         user_id: user?.id,
         word: word.trim(),
         definition: preview.definition,
+        tldr: preview.tldr,
         example_sentence: preview.example,
         next_review_date: new Date().toISOString(),
       });
@@ -205,7 +207,10 @@ export const HomeTab = () => {
           <div className="space-y-4">
             <div>
               <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">{word}</h3>
-              <p className="text-gray-700 dark:text-gray-300 mb-4">{preview.definition}</p>
+              <p className="text-gray-700 dark:text-gray-300 mb-1">{preview.definition}</p>
+              {preview.tldr && (
+                <p className="text-sm font-medium text-blue-600 dark:text-blue-400 mb-4">TLDR: {preview.tldr}</p>
+              )}
               <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Example:</p>
                 <p className="text-gray-900 dark:text-white italic whitespace-pre-line">{preview.example.replace(/\. /g, '.\n')}</p>
@@ -252,6 +257,9 @@ export const HomeTab = () => {
                 <p className="text-gray-600 dark:text-gray-400 text-sm">
                   {expandedId === w.id ? w.definition : w.definition.slice(0, 100) + '...'}
                 </p>
+                {expandedId === w.id && w.tldr && (
+                  <p className="text-sm font-medium text-blue-600 dark:text-blue-400 mt-1">TLDR: {w.tldr}</p>
+                )}
                 {expandedId === w.id && (
                   <div className="mt-3 bg-gray-50 dark:bg-gray-700 p-3 rounded">
                     <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Example:</p>

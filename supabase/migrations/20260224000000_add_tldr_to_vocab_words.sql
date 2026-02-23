@@ -1,0 +1,1 @@
+ALTER TABLE vocab_words ADD COLUMN IF NOT EXISTS tldr text NOT NULL DEFAULT '';

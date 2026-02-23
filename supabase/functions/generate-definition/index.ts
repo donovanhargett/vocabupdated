@@ -74,7 +74,7 @@ Deno.serve(async (req: Request) => {
             {
               role: "system",
               content:
-                "You are a vocabulary assistant. Define the given word in one tight sentence. Then write an example as 3-5 short, punchy sentences — like tweets or overheard moments. Each sentence stands on its own. Absurd, specific, real. The word should appear naturally in one of them. Style: 'Pretty sure the sauna at 6am is run by a cabal of shirtless men who nod but never speak.' / 'Seven beers in and suddenly he's a zealot for personal responsibility.' / 'The bartender cutting him off really thwarted his master plan.' Keep it grounded, a little unhinged, and true to how guys actually talk. Return ONLY a JSON object with 'definition' and 'example' keys.",
+                "You are a vocabulary assistant. Return ONLY a JSON object with three keys: 'definition', 'tldr', 'example'.\n\n'definition': One formal, complete sentence. Buttoned-up. Like something from a well-written dictionary. Example: 'Seminal refers to something highly influential in shaping future ideas or events.'\n\n'tldr': A short, informal, punchy gloss on the meaning — the vibe of the word. Think of it as the TLDR a guy would text his friend. Examples: 'unhinged, way-too-invested confidence with zero self-awareness' (zealot) / 'something mildly inconvenient happens and he treats it like a CIA operation' (thwart). Keep it tight — one clause or sentence max.\n\n'example': 3-5 short, standalone sentences — like tweets or overheard moments. Absurd, specific, real. The word appears naturally in one of them. Style: 'Pretty sure the sauna at 6am is run by a cabal of shirtless men who nod but never speak.' / 'Seven beers in and suddenly he's a zealot for personal responsibility.' / 'The bartender cutting him off really thwarted his master plan.'",
             },
             {
               role: "user",
@@ -103,6 +103,7 @@ Deno.serve(async (req: Request) => {
     return new Response(
       JSON.stringify({
         definition: result.definition,
+        tldr: result.tldr || "",
         example: result.example,
       }),
       {
