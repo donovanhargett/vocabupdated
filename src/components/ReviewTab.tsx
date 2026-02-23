@@ -7,6 +7,7 @@ interface VocabWord {
   id: string;
   word: string;
   definition: string;
+  tldr: string;
   example_sentence: string;
   ease_factor: number;
   interval: number;
@@ -188,7 +189,10 @@ export const ReviewTab = () => {
         ) : (
           <div className="w-full space-y-4">
             <h2 className="text-3xl font-bold text-gray-900 dark:text-white">{currentWord.word}</h2>
-            <p className="text-lg text-gray-700 dark:text-gray-300">{currentWord.definition}</p>
+            <p className="text-lg text-gray-700 dark:text-gray-300 mb-1">{currentWord.definition}</p>
+            {currentWord.tldr && (
+              <p className="text-sm font-medium text-blue-600 dark:text-blue-400">TLDR: {currentWord.tldr}</p>
+            )}
             <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
               <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Example:</p>
               <ul className="space-y-3">
