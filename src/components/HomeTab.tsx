@@ -29,6 +29,8 @@ interface VocabWord {
   word: string;
   definition: string;
   tldr: string;
+  pronunciation: string;
+  synonyms: string;
   example_sentence: string;
   created_at: string;
 }
@@ -39,7 +41,7 @@ export const HomeTab = () => {
   const [generating, setGenerating] = useState(false);
   const [words, setWords] = useState<VocabWord[]>([]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [preview, setPreview] = useState<{ definition: string; tldr: string; example: string } | null>(null);
+  const [preview, setPreview] = useState<{ definition: string; tldr: string; pronunciation: string; synonyms: string[]; example: string } | null>(null);
   const [dailyContent, setDailyContent] = useState<DailyContent | null>(null);
   const [dailyLoading, setDailyLoading] = useState(false);
   const contentDateRef = useRef(getContentDate());
@@ -136,7 +138,13 @@ export const HomeTab = () => {
 
       const data = await response.json();
       const example = Array.isArray(data.example) ? data.example.join(' ') : data.example;
-      setPreview({ definition: data.definition, tldr: data.tldr || '', example });
+      setPreview({
+        definition: data.definition,
+        tldr: data.tldr || '',
+        pronunciation: data.pronunciation || '',
+        synonyms: Array.isArray(data.synonyms) ? data.synonyms : [],
+        example,
+      });
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to generate definition');
     } finally {
@@ -154,6 +162,8 @@ export const HomeTab = () => {
         word: word.trim(),
         definition: preview.definition,
         tldr: preview.tldr,
+        pronunciation: preview.pronunciation,
+        synonyms: preview.synonyms.join(', '),
         example_sentence: preview.example,
         next_review_date: new Date().toISOString(),
       });
@@ -207,7 +217,12 @@ export const HomeTab = () => {
         ) : (
           <div className="space-y-4">
             <div>
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">{word}</h3>
+              <div className="flex items-baseline gap-3 mb-2">
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white">{word}</h3>
+                {preview.pronunciation && (
+                  <span className="text-sm text-gray-500 dark:text-gray-400 font-mono">{preview.pronunciation}</span>
+                )}
+              </div>
               <p className="text-gray-700 dark:text-gray-300 mb-1">{preview.definition}</p>
               {preview.tldr && (
                 <p className="text-sm font-medium text-blue-600 dark:text-blue-400 mb-4">TLDR: {preview.tldr}</p>
@@ -223,6 +238,11 @@ export const HomeTab = () => {
                   ))}
                 </ul>
               </div>
+              {preview.synonyms.length > 0 && (
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  <span className="font-medium">Synonyms:</span> {preview.synonyms.join(', ')}
+                </p>
+              )}
             </div>
             <div className="flex gap-3">
               <button
@@ -261,7 +281,12 @@ export const HomeTab = () => {
           >
             <div className="flex items-start justify-between">
               <div className="flex-1 cursor-pointer" onClick={() => setExpandedId(expandedId === w.id ? null : w.id)}>
-                <h4 className="text-lg font-bold text-gray-900 dark:text-white">{w.word}</h4>
+                <div className="flex items-baseline gap-2">
+                  <h4 className="text-lg font-bold text-gray-900 dark:text-white">{w.word}</h4>
+                  {w.pronunciation && (
+                    <span className="text-xs text-gray-500 dark:text-gray-400 font-mono">{w.pronunciation}</span>
+                  )}
+                </div>
                 <p className="text-gray-600 dark:text-gray-400 text-sm">
                   {expandedId === w.id ? w.definition : w.definition.slice(0, 100) + '...'}
                 </p>
@@ -280,6 +305,11 @@ export const HomeTab = () => {
                       ))}
                     </ul>
                   </div>
+                )}
+                {expandedId === w.id && w.synonyms && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                    <span className="font-medium">Synonyms:</span> {w.synonyms}
+                  </p>
                 )}
               </div>
               <button

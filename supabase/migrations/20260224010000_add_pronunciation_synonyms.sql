@@ -1,0 +1,2 @@
+ALTER TABLE vocab_words ADD COLUMN IF NOT EXISTS pronunciation text NOT NULL DEFAULT '';
+ALTER TABLE vocab_words ADD COLUMN IF NOT EXISTS synonyms text NOT NULL DEFAULT '';

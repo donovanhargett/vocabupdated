@@ -8,6 +8,8 @@ interface VocabWord {
   word: string;
   definition: string;
   tldr: string;
+  pronunciation: string;
+  synonyms: string;
   example_sentence: string;
   ease_factor: number;
   interval: number;
@@ -188,7 +190,12 @@ export const ReviewTab = () => {
           </h2>
         ) : (
           <div className="w-full space-y-4">
-            <h2 className="text-3xl font-bold text-gray-900 dark:text-white">{currentWord.word}</h2>
+            <div className="flex items-baseline gap-3">
+              <h2 className="text-3xl font-bold text-gray-900 dark:text-white">{currentWord.word}</h2>
+              {currentWord.pronunciation && (
+                <span className="text-sm text-gray-500 dark:text-gray-400 font-mono">{currentWord.pronunciation}</span>
+              )}
+            </div>
             <p className="text-lg text-gray-700 dark:text-gray-300 mb-1">{currentWord.definition}</p>
             {currentWord.tldr && (
               <p className="text-sm font-medium text-blue-600 dark:text-blue-400">TLDR: {currentWord.tldr}</p>
@@ -204,6 +211,11 @@ export const ReviewTab = () => {
                 ))}
               </ul>
             </div>
+            {currentWord.synonyms && (
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                <span className="font-medium">Synonyms:</span> {currentWord.synonyms}
+              </p>
+            )}
           </div>
         )}
       </div>
