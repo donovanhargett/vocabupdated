@@ -208,7 +208,7 @@ export const HomeTab = () => {
               <p className="text-gray-700 dark:text-gray-300 mb-4">{preview.definition}</p>
               <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Example:</p>
-                <p className="text-gray-900 dark:text-white italic">{preview.example}</p>
+                <p className="text-gray-900 dark:text-white italic whitespace-pre-line">{preview.example.replace(/\. /g, '.\n')}</p>
               </div>
             </div>
             <div className="flex gap-3">
@@ -255,7 +255,7 @@ export const HomeTab = () => {
                 {expandedId === w.id && (
                   <div className="mt-3 bg-gray-50 dark:bg-gray-700 p-3 rounded">
                     <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Example:</p>
-                    <p className="text-sm text-gray-900 dark:text-white italic">{w.example_sentence}</p>
+                    <p className="text-sm text-gray-900 dark:text-white italic whitespace-pre-line">{w.example_sentence.replace(/\. /g, '.\n')}</p>
                   </div>
                 )}
               </div>
