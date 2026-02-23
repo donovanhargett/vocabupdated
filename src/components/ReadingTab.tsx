@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { BookOpen, FileText, Youtube, ExternalLink, Plus, Trash2, X } from 'lucide-react';
+import { BookOpen, FileText, Youtube, ExternalLink, Plus, Trash2, X, Circle, CheckCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -7,14 +7,14 @@ const READING_LIST = [
   // ── BOOKS ──────────────────────────────────────────────────────────────────
   {
     type: "book",
-    author: "Orwell",
+    author: "George Orwell",
     title: "Essays (Everyman's)",
     description: "The complete political and cultural writings, indispensable",
     url: "https://oceanofpdf.com/authors/george-orwell/pdf-epub-a-collection-of-essays-download-63819147382/"
   },
   {
     type: "book",
-    author: "Orwell",
+    author: "George Orwell",
     title: "The Road to Wigan Pier",
     description: "Class, poverty, and socialism examined with brutal honesty",
     url: "https://oceanofpdf.com/authors/george-orwell/pdf-epub-the-road-to-wigan-pier-download-46365530832/"
@@ -102,13 +102,6 @@ const READING_LIST = [
   // ── YOUTUBE ────────────────────────────────────────────────────────────────
   {
     type: "youtube",
-    author: "Christopher Hitchens",
-    title: "Hitchens on Writing — Advice for Writers",
-    description: "The craft of writing from someone who actually had one — short, essential",
-    url: "https://www.youtube.com/watch?v=OTyxpaXOAIE"
-  },
-  {
-    type: "youtube",
     author: "Paul Graham",
     title: "Paul Graham on Writing, Thinking, and the Work That Matters",
     description: "Practical take on clarity — 20 minutes that will change how you approach language",
@@ -116,25 +109,39 @@ const READING_LIST = [
   },
   {
     type: "youtube",
-    author: "Christopher Hitchens",
-    title: "Hitchens Debates and Lectures (Full Playlist)",
-    description: "Watch how he deploys vocabulary live under pressure — better than any writing guide",
-    url: "https://www.youtube.com/playlist?list=PLd8V7PnAkmxKgOPJTHXMGQXy8sUJLqGqV"
+    author: "Richard Feynman",
+    title: "Fun to Imagine (BBC, 1983)",
+    description: "Feynman explaining physics the way he explains everything — by actually thinking it through. Watch how precision and simplicity are the same thing.",
+    url: "https://www.youtube.com/watch?v=nYg6jzotiAc"
   },
   {
     type: "youtube",
-    author: "Lex Fridman",
-    title: "Thomas Sowell — Race, Politics, and Economics",
-    description: "Sowell is precise in a way almost no public intellectual is — good vocabulary modelling for professional settings",
-    url: "https://www.youtube.com/watch?v=hfbwCDhiMZw"
+    author: "Milton Friedman",
+    title: "Myths That Conceal Reality",
+    description: "A masterclass in economic reasoning and precise language — Friedman dismantles vague thinking in real time",
+    url: "https://www.youtube.com/watch?v=OOZxMjo14pw"
+  },
+  {
+    type: "youtube",
+    author: "Christopher Hitchens",
+    title: "Hitchens at Google — God Is Not Great",
+    description: "One of the best public speakers of the 20th century at full speed — study the sentence construction",
+    url: "https://www.youtube.com/watch?v=sD0B-X9LJjs"
+  },
+  {
+    type: "youtube",
+    author: "Hoover Institution",
+    title: "Hoover Institution — Sowell, Hanson, and more",
+    description: "The best archive of serious intellectual conversation in America — Sowell, Hanson, and others talking precisely about hard things",
+    url: "https://www.youtube.com/@HooverInstitution"
   },
   {
     type: "youtube",
     author: "Firing Line",
-    title: "William F. Buckley Archive",
+    title: "Firing Line with William F. Buckley Jr.",
     description: "The gold standard of formal intellectual vocabulary in conversation — every episode is a masterclass",
     url: "https://www.youtube.com/@FiringLineWithMargaret"
-  }
+  },
 ];
 
 const TYPE_CONFIG = {
@@ -161,6 +168,8 @@ const TYPE_CONFIG = {
   },
 };
 
+type ReadStatus = 'reading' | 'read';
+
 interface UserEntry {
   id: string;
   type: string;
@@ -178,9 +187,11 @@ export const ReadingTab = () => {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [progress, setProgress] = useState<Map<string, ReadStatus>>(new Map());
 
   useEffect(() => {
     loadUserEntries();
+    loadProgress();
   }, []);
 
   const loadUserEntries = async () => {
@@ -189,6 +200,42 @@ export const ReadingTab = () => {
       .select('*')
       .order('created_at', { ascending: false });
     if (data) setUserEntries(data);
+  };
+
+  const loadProgress = async () => {
+    const { data } = await supabase
+      .from('reading_progress')
+      .select('item_key, status');
+    if (data) {
+      const map = new Map<string, ReadStatus>();
+      data.forEach(row => map.set(row.item_key, row.status as ReadStatus));
+      setProgress(map);
+    }
+  };
+
+  const cycleStatus = async (itemKey: string) => {
+    const current = progress.get(itemKey);
+    if (!current) {
+      await supabase.from('reading_progress').upsert(
+        { user_id: user?.id, item_key: itemKey, status: 'reading', updated_at: new Date().toISOString() },
+        { onConflict: 'user_id,item_key' }
+      );
+      setProgress(new Map(progress).set(itemKey, 'reading'));
+    } else if (current === 'reading') {
+      await supabase.from('reading_progress').upsert(
+        { user_id: user?.id, item_key: itemKey, status: 'read', updated_at: new Date().toISOString() },
+        { onConflict: 'user_id,item_key' }
+      );
+      setProgress(new Map(progress).set(itemKey, 'read'));
+    } else {
+      await supabase.from('reading_progress')
+        .delete()
+        .eq('user_id', user?.id)
+        .eq('item_key', itemKey);
+      const newMap = new Map(progress);
+      newMap.delete(itemKey);
+      setProgress(newMap);
+    }
   };
 
   const handleAdd = async () => {
@@ -214,6 +261,28 @@ export const ReadingTab = () => {
   const handleDelete = async (id: string) => {
     await supabase.from('reading_list').delete().eq('id', id);
     setUserEntries(userEntries.filter(e => e.id !== id));
+  };
+
+  const StatusButton = ({ itemKey }: { itemKey: string }) => {
+    const status = progress.get(itemKey);
+    if (status === 'read') {
+      return (
+        <button onClick={() => cycleStatus(itemKey)} title="Read — click to mark unread" className="transition-colors">
+          <CheckCircle size={16} className="text-green-500" />
+        </button>
+      );
+    } else if (status === 'reading') {
+      return (
+        <button onClick={() => cycleStatus(itemKey)} title="Reading — click to mark read" className="transition-colors">
+          <BookOpen size={16} className="text-blue-500" />
+        </button>
+      );
+    }
+    return (
+      <button onClick={() => cycleStatus(itemKey)} title="Click to mark as reading" className="transition-colors">
+        <Circle size={16} className="text-gray-300 dark:text-gray-600 hover:text-gray-400 dark:hover:text-gray-500" />
+      </button>
+    );
   };
 
   const sections = (['book', 'article', 'youtube'] as const).map((type) => ({
@@ -333,42 +402,49 @@ export const ReadingTab = () => {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-gray-100 dark:border-gray-700">
-                      <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-[45%]">Title</th>
-                      <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-[30%]">Author</th>
+                      <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-[42%]">Title</th>
+                      <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-[28%]">Author</th>
                       <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Link</th>
+                      <th className="px-4 py-2.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide text-center w-10">Status</th>
                       <th className="w-8"></th>
                     </tr>
                   </thead>
                   <tbody>
-                    {allItems.map((item, i) => (
-                      <tr
-                        key={item.id ?? i}
-                        className="border-b border-gray-50 dark:border-gray-700/50 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors"
-                      >
-                        <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">{item.title}</td>
-                        <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{item.author}</td>
-                        <td className="px-4 py-3">
-                          <a
-                            href={item.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline"
-                          >
-                            Open <ExternalLink size={13} />
-                          </a>
-                        </td>
-                        <td className="px-2 py-3">
-                          {item.isUser && (
-                            <button
-                              onClick={() => handleDelete(item.id!)}
-                              className="text-gray-300 hover:text-red-500 dark:text-gray-600 dark:hover:text-red-400 transition-colors"
+                    {allItems.map((item, i) => {
+                      const itemKey = item.id ?? item.url;
+                      return (
+                        <tr
+                          key={item.id ?? i}
+                          className="border-b border-gray-50 dark:border-gray-700/50 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors"
+                        >
+                          <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">{item.title}</td>
+                          <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{item.author}</td>
+                          <td className="px-4 py-3">
+                            <a
+                              href={item.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline"
                             >
-                              <Trash2 size={14} />
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
+                              Open <ExternalLink size={13} />
+                            </a>
+                          </td>
+                          <td className="px-2 py-3 text-center">
+                            <StatusButton itemKey={itemKey} />
+                          </td>
+                          <td className="px-2 py-3">
+                            {item.isUser && (
+                              <button
+                                onClick={() => handleDelete(item.id!)}
+                                className="text-gray-300 hover:text-red-500 dark:text-gray-600 dark:hover:text-red-400 transition-colors"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
