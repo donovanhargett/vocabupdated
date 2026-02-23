@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus, Trash2, RefreshCw, Check } from 'lucide-react';
+import { Plus, Trash2, RefreshCw, Check, ChevronDown, ChevronUp } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -10,12 +10,14 @@ interface DailyContent {
   idiom: string;
   idiom_explanation: string;
   idiom_example: string;
+  topic_title: string;
+  topic_explanation: string;
+  topic_feynman: string;
 }
 
 const getContentDate = () => {
   const now = new Date();
   const pad = (n: number) => String(n).padStart(2, '0');
-  // At 11:59pm, advance to the next day's content
   if (now.getHours() === 23 && now.getMinutes() >= 59) {
     const tomorrow = new Date(now);
     tomorrow.setDate(tomorrow.getDate() + 1);
@@ -44,6 +46,7 @@ export const HomeTab = () => {
   const [preview, setPreview] = useState<{ definition: string; tldr: string; pronunciation: string; synonyms: string[]; example: string } | null>(null);
   const [dailyContent, setDailyContent] = useState<DailyContent | null>(null);
   const [dailyLoading, setDailyLoading] = useState(false);
+  const [wordsCollapsed, setWordsCollapsed] = useState(false);
   const contentDateRef = useRef(getContentDate());
   const { user } = useAuth();
 
@@ -82,18 +85,13 @@ export const HomeTab = () => {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'vocab_words', filter: `user_id=eq.${user?.id}` },
-        () => {
-          loadWords();
-        }
+        () => { loadWords(); }
       )
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, [user]);
 
-  // Check every minute for the 11:59pm daily rollover
   useEffect(() => {
     const interval = setInterval(() => {
       const newDate = getContentDate();
@@ -115,7 +113,6 @@ export const HomeTab = () => {
 
   const generateDefinition = async () => {
     if (!word.trim()) return;
-
     setGenerating(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -154,7 +151,6 @@ export const HomeTab = () => {
 
   const saveWord = async () => {
     if (!preview) return;
-
     setLoading(true);
     try {
       await supabase.from('vocab_words').insert({
@@ -167,7 +163,6 @@ export const HomeTab = () => {
         example_sentence: preview.example,
         next_review_date: new Date().toISOString(),
       });
-
       setWord('');
       setPreview(null);
     } catch (err) {
@@ -181,10 +176,16 @@ export const HomeTab = () => {
     await supabase.from('vocab_words').delete().eq('id', id);
   };
 
+  const exampleBullets = (sentence: string | string[]) =>
+    Array.isArray(sentence)
+      ? sentence
+      : sentence.split(/\. /).filter(Boolean).map((s, i, a) => s + (i < a.length - 1 ? '.' : ''));
+
   return (
     <div className="max-w-4xl mx-auto">
-      <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-6">Add New Word</h2>
 
+      {/* ── Add New Word ──────────────────────────────────────────────────── */}
+      <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-6">Add New Word</h2>
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-8">
         {!preview ? (
           <div className="flex gap-3">
@@ -202,15 +203,9 @@ export const HomeTab = () => {
               className="px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium rounded-lg transition-colors flex items-center gap-2"
             >
               {generating ? (
-                <>
-                  <RefreshCw size={20} className="animate-spin" />
-                  Generating...
-                </>
+                <><RefreshCw size={20} className="animate-spin" />Generating...</>
               ) : (
-                <>
-                  <Plus size={20} />
-                  Generate
-                </>
+                <><Plus size={20} />Generate</>
               )}
             </button>
           </div>
@@ -230,7 +225,7 @@ export const HomeTab = () => {
               <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Example:</p>
                 <ul className="space-y-3">
-                  {(Array.isArray(preview.example) ? preview.example : preview.example.split(/\. /).filter(Boolean).map((s, i, a) => s + (i < a.length - 1 ? '.' : ''))).map((s, i) => (
+                  {exampleBullets(preview.example).map((s, i) => (
                     <li key={i} className="flex gap-2 text-gray-900 dark:text-white italic">
                       <span className="text-gray-400 select-none">•</span>
                       <span>{s}</span>
@@ -239,32 +234,22 @@ export const HomeTab = () => {
                 </ul>
               </div>
               {preview.synonyms.length > 0 && (
-                <p className="text-sm text-gray-500 dark:text-gray-400">
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
                   <span className="font-medium">Synonyms:</span> {preview.synonyms.join(', ')}
                 </p>
               )}
             </div>
             <div className="flex gap-3">
-              <button
-                onClick={saveWord}
-                disabled={loading}
-                className="flex-1 px-6 py-3 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
-              >
-                <Check size={20} />
-                Confirm & Save
+              <button onClick={saveWord} disabled={loading}
+                className="flex-1 px-6 py-3 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2">
+                <Check size={20} />Confirm & Save
               </button>
-              <button
-                onClick={generateDefinition}
-                disabled={generating}
-                className="px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white font-medium rounded-lg transition-colors flex items-center gap-2"
-              >
-                <RefreshCw size={20} />
-                Regenerate
+              <button onClick={generateDefinition} disabled={generating}
+                className="px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white font-medium rounded-lg transition-colors flex items-center gap-2">
+                <RefreshCw size={20} />Regenerate
               </button>
-              <button
-                onClick={() => setPreview(null)}
-                className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors"
-              >
+              <button onClick={() => setPreview(null)}
+                className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors">
                 Cancel
               </button>
             </div>
@@ -272,75 +257,31 @@ export const HomeTab = () => {
         )}
       </div>
 
-      <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Your Words</h3>
-      <div className="space-y-3">
-        {words.map((w) => (
-          <div
-            key={w.id}
-            className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 hover:shadow-md transition-shadow"
-          >
-            <div className="flex items-start justify-between">
-              <div className="flex-1 cursor-pointer" onClick={() => setExpandedId(expandedId === w.id ? null : w.id)}>
-                <div className="flex items-baseline gap-2">
-                  <h4 className="text-lg font-bold text-gray-900 dark:text-white">{w.word}</h4>
-                  {w.pronunciation && (
-                    <span className="text-xs text-gray-500 dark:text-gray-400 font-mono">{w.pronunciation}</span>
-                  )}
-                </div>
-                <p className="text-gray-600 dark:text-gray-400 text-sm">
-                  {expandedId === w.id ? w.definition : w.definition.slice(0, 100) + '...'}
-                </p>
-                {expandedId === w.id && w.tldr && (
-                  <p className="text-sm font-medium text-blue-600 dark:text-blue-400 mt-1">TLDR: {w.tldr}</p>
-                )}
-                {expandedId === w.id && (
-                  <div className="mt-3 bg-gray-50 dark:bg-gray-700 p-3 rounded">
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">Example:</p>
-                    <ul className="space-y-3">
-                      {(Array.isArray(w.example_sentence) ? w.example_sentence : w.example_sentence.split(/\. /).filter(Boolean).map((s, i, a) => s + (i < a.length - 1 ? '.' : ''))).map((s, i) => (
-                        <li key={i} className="flex gap-2 text-sm text-gray-900 dark:text-white italic">
-                          <span className="text-gray-400 select-none">•</span>
-                          <span>{s}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                {expandedId === w.id && w.synonyms && (
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                    <span className="font-medium">Synonyms:</span> {w.synonyms}
-                  </p>
-                )}
-              </div>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  deleteWord(w.id);
-                }}
-                className="ml-4 p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-              >
-                <Trash2 size={18} />
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
-      <div className="mt-12">
-        <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Daily Picks</h3>
-        {dailyLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* ── Daily Picks ───────────────────────────────────────────────────── */}
+      <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Daily Picks</h3>
+      {dailyLoading ? (
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {[0, 1].map(i => (
               <div key={i} className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 animate-pulse">
                 <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mb-4" />
                 <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-1/2 mb-3" />
                 <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full mb-2" />
-                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-4" />
-                <div className="h-14 bg-gray-100 dark:bg-gray-700/50 rounded" />
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4" />
               </div>
             ))}
           </div>
-        ) : dailyContent ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 animate-pulse">
+            <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/4 mb-4" />
+            <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mb-3" />
+            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full mb-2" />
+            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-5/6 mb-2" />
+            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-4/6" />
+          </div>
+        </div>
+      ) : dailyContent ? (
+        <div className="space-y-4 mb-10">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 border-l-4 border-blue-500">
               <p className="text-xs font-semibold text-blue-500 uppercase tracking-wider mb-2">Word of the Day</p>
               <h4 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">{dailyContent.word}</h4>
@@ -360,8 +301,102 @@ export const HomeTab = () => {
               <p className="text-xs text-gray-400 dark:text-gray-500 mt-3">à la David Sacks</p>
             </div>
           </div>
-        ) : null}
+
+          {dailyContent.topic_title && (
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 border-l-4 border-emerald-500">
+              <p className="text-xs font-semibold text-emerald-500 uppercase tracking-wider mb-2">Topic of the Day</p>
+              <h4 className="text-xl font-bold text-gray-900 dark:text-white mb-3">{dailyContent.topic_title}</h4>
+              <p className="text-gray-700 dark:text-gray-300 mb-4">{dailyContent.topic_explanation}</p>
+              <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-lg p-4 border border-emerald-100 dark:border-emerald-800">
+                <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide mb-1">Feynman Version</p>
+                <p className="text-sm text-gray-700 dark:text-gray-300 italic">{dailyContent.topic_feynman}</p>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : null}
+
+      {/* ── Your Words ────────────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
+          Your Words
+          <span className="ml-2 text-sm font-normal text-gray-400">({words.length})</span>
+        </h3>
+        <button
+          onClick={() => setWordsCollapsed(!wordsCollapsed)}
+          className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+        >
+          {wordsCollapsed ? <><ChevronDown size={16} />Show</> : <><ChevronUp size={16} />Hide</>}
+        </button>
       </div>
+
+      {!wordsCollapsed && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-100 dark:border-gray-700">
+                <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-[30%]">Word</th>
+                <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Definition</th>
+                <th className="w-10"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {words.map((w) => (
+                <>
+                  <tr
+                    key={w.id}
+                    onClick={() => setExpandedId(expandedId === w.id ? null : w.id)}
+                    className="border-b border-gray-50 dark:border-gray-700/50 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors cursor-pointer"
+                  >
+                    <td className="px-4 py-3">
+                      <span className="font-semibold text-gray-900 dark:text-white">{w.word}</span>
+                      {w.pronunciation && (
+                        <span className="ml-2 text-xs text-gray-400 font-mono">{w.pronunciation}</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400 truncate max-w-0">
+                      <span className="block truncate">
+                        {expandedId === w.id ? w.definition : w.definition.slice(0, 120) + (w.definition.length > 120 ? '…' : '')}
+                      </span>
+                    </td>
+                    <td className="px-2 py-3">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); deleteWord(w.id); }}
+                        className="p-1.5 text-gray-300 hover:text-red-500 dark:text-gray-600 dark:hover:text-red-400 transition-colors rounded"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </td>
+                  </tr>
+                  {expandedId === w.id && (
+                    <tr key={`${w.id}-expanded`} className="border-b border-gray-100 dark:border-gray-700/50 bg-gray-50 dark:bg-gray-700/30">
+                      <td colSpan={3} className="px-4 py-4">
+                        <p className="text-gray-700 dark:text-gray-300 mb-1">{w.definition}</p>
+                        {w.tldr && (
+                          <p className="text-sm font-medium text-blue-600 dark:text-blue-400 mb-3">TLDR: {w.tldr}</p>
+                        )}
+                        <ul className="space-y-2 mb-3">
+                          {exampleBullets(w.example_sentence).map((s, i) => (
+                            <li key={i} className="flex gap-2 text-sm text-gray-900 dark:text-white italic">
+                              <span className="text-gray-400 select-none">•</span>
+                              <span>{s}</span>
+                            </li>
+                          ))}
+                        </ul>
+                        {w.synonyms && (
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            <span className="font-medium">Synonyms:</span> {w.synonyms}
+                          </p>
+                        )}
+                      </td>
+                    </tr>
+                  )}
+                </>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 };
