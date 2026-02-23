@@ -190,8 +190,15 @@ export const ReviewTab = () => {
             <h2 className="text-3xl font-bold text-gray-900 dark:text-white">{currentWord.word}</h2>
             <p className="text-lg text-gray-700 dark:text-gray-300">{currentWord.definition}</p>
             <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Example:</p>
-              <p className="text-gray-900 dark:text-white italic">{currentWord.example_sentence}</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Example:</p>
+              <ul className="space-y-3">
+                {currentWord.example_sentence.split(/\. /).filter(Boolean).map((s, i, a) => (
+                  <li key={i} className="flex gap-2 text-gray-900 dark:text-white italic">
+                    <span className="text-gray-400 select-none">•</span>
+                    <span>{s + (i < a.length - 1 ? '.' : '')}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
           </div>
         )}
