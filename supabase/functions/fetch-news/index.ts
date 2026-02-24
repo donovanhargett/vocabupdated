@@ -16,23 +16,21 @@ const get48hAgoISO = () => {
   return d.toISOString().replace(/\.\d{3}Z$/, "Z");
 };
 
-// ── Followed accounts (split into two batches — free tier max is 512 chars/query)
-// Batch 1: ~297 chars — high-signal neurotech, main VC, core AI
-const BATCH_1 = [
-  "neuralink", "elonmusk", "cb_doge", "NeuroTechX", "XFreeze", "tetsuoai",
-  "Jason", "chamath", "pmarca", "DavidSacks", "a16z",
-  "sama", "karpathy", "lexfridman", "Friedberg", "eladgil", "ylecun",
-];
-// Batch 2: ~340 chars — supporting accounts
-const BATCH_2 = [
-  "rohanpaul_ai", "WevolverApp", "ShiningScience", "DimaZeniuk",
-  "sarahdingwang", "martin_casado", "brexHQ", "alliekmiller",
-  "rowancheung", "AndrewYNg", "kaifulee", "antgrasso",
-  "Ronald_vanLoon", "erikbryn", "latentspacepod", "FractionAI_xyz",
+// ── Top 20 accounts — fits in a single query under the 512-char free-tier limit (~376 chars)
+// One API call per day eliminates rate-limit issues
+const ACCOUNTS = [
+  // Core VC / all-in pod
+  "elonmusk", "chamath", "Jason", "DavidSacks", "pmarca", "a16z", "Friedberg", "eladgil",
+  // Core AI / tech
+  "sama", "karpathy", "lexfridman", "ylecun",
+  // Neurotech / BCI
+  "neuralink", "cb_doge", "NeuroTechX", "XFreeze", "tetsuoai",
+  // Emerging tech
+  "alliekmiller", "rowancheung", "AndrewYNg",
 ];
 
-const buildQuery = (accounts: string[]) =>
-  `(${accounts.map((a) => `from:${a}`).join(" OR ")}) -is:retweet -is:reply lang:en`;
+const ACCOUNT_QUERY =
+  `(${ACCOUNTS.map((a) => `from:${a}`).join(" OR ")}) -is:retweet -is:reply lang:en`;
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -73,39 +71,28 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // ── Fetch from X API v2 (two parallel requests — free tier 512 char limit) ──
+    // ── Fetch from X API v2 — single request per day (free tier: 1 req / 15 min) ──
     const startTime = get48hAgoISO();
+    const apiUrl =
+      `https://api.twitter.com/2/tweets/search/recent` +
+      `?query=${encodeURIComponent(ACCOUNT_QUERY)}` +
+      `&max_results=20` +
+      `&start_time=${encodeURIComponent(startTime)}` +
+      `&tweet.fields=created_at,author_id,public_metrics,text` +
+      `&expansions=author_id` +
+      `&user.fields=name,username`;
 
-    const fetchBatch = async (accounts: string[]) => {
-      const url =
-        `https://api.twitter.com/2/tweets/search/recent` +
-        `?query=${encodeURIComponent(buildQuery(accounts))}` +
-        `&max_results=25` +
-        `&start_time=${encodeURIComponent(startTime)}` +
-        `&tweet.fields=created_at,author_id,public_metrics,text` +
-        `&expansions=author_id` +
-        `&user.fields=name,username`;
+    const res = await fetch(apiUrl, {
+      headers: { Authorization: `Bearer ${xBearerToken}` },
+    });
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`X API error ${res.status}: ${errText}`);
+    }
 
-      const res = await fetch(url, {
-        headers: { Authorization: `Bearer ${xBearerToken}` },
-      });
-      if (!res.ok) {
-        const errText = await res.text();
-        throw new Error(`X API error ${res.status}: ${errText}`);
-      }
-      return res.json();
-    };
-
-    const [data1, data2] = await Promise.all([
-      fetchBatch(BATCH_1),
-      fetchBatch(BATCH_2),
-    ]);
-
-    const tweets: any[] = [...(data1.data ?? []), ...(data2.data ?? [])];
-    const users: any[] = [
-      ...(data1.includes?.users ?? []),
-      ...(data2.includes?.users ?? []),
-    ];
+    const data = await res.json();
+    const tweets: any[] = data.data ?? [];
+    const users: any[] = data.includes?.users ?? [];
 
     const userMap = new Map<string, { name: string; username: string }>(
       users.map((u) => [u.id, { name: u.name, username: u.username }])
