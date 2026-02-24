@@ -141,11 +141,11 @@ export const NewsTab = () => {
                   <div className="flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500">
                     <span className="flex items-center gap-1">
                       <Heart size={11} />
-                      {story.likes.toLocaleString()}
+                      {(story.likes ?? 0).toLocaleString()}
                     </span>
                     <span className="flex items-center gap-1">
                       <Repeat2 size={11} />
-                      {story.retweets.toLocaleString()}
+                      {(story.retweets ?? 0).toLocaleString()}
                     </span>
                   </div>
                   <a
