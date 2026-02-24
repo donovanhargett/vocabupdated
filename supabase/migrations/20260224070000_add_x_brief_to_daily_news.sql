@@ -1,0 +1,1 @@
+ALTER TABLE daily_news ADD COLUMN IF NOT EXISTS x_brief jsonb NOT NULL DEFAULT '[]';
