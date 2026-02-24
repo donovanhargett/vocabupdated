@@ -9,13 +9,6 @@ const corsHeaders = {
 
 const getDateString = () => new Date().toISOString().split("T")[0];
 
-// ISO 8601 timestamp for 48 hours ago (within X API's 7-day window)
-const get48hAgoISO = () => {
-  const d = new Date();
-  d.setHours(d.getHours() - 48);
-  return d.toISOString().replace(/\.\d{3}Z$/, "Z");
-};
-
 // ── Top 20 accounts — fits in a single query under the 512-char free-tier limit (~376 chars)
 // One API call per day eliminates rate-limit issues
 const ACCOUNTS = [
@@ -72,12 +65,10 @@ Deno.serve(async (req: Request) => {
     }
 
     // ── Fetch from X API v2 — single request per day (free tier: 1 req / 15 min) ──
-    const startTime = get48hAgoISO();
     const apiUrl =
       `https://api.twitter.com/2/tweets/search/recent` +
       `?query=${encodeURIComponent(ACCOUNT_QUERY)}` +
-      `&max_results=20` +
-      `&start_time=${encodeURIComponent(startTime)}` +
+      `&max_results=10` +
       `&tweet.fields=created_at,author_id,public_metrics,text` +
       `&expansions=author_id` +
       `&user.fields=name,username`;
@@ -85,6 +76,12 @@ Deno.serve(async (req: Request) => {
     const res = await fetch(apiUrl, {
       headers: { Authorization: `Bearer ${xBearerToken}` },
     });
+    if (res.status === 429) {
+      return new Response(
+        JSON.stringify({ error: "X API rate limit reached. The free tier allows 1 request per 15 minutes — please wait a moment and try again." }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
     if (!res.ok) {
       const errText = await res.text();
       throw new Error(`X API error ${res.status}: ${errText}`);
