@@ -9,21 +9,51 @@ const corsHeaders = {
 
 const getDateString = () => new Date().toISOString().split("T")[0];
 
-// ── Top 20 accounts — fits in a single query under the 512-char free-tier limit (~376 chars)
-// One API call per day eliminates rate-limit issues
+// ── Followed accounts (~376 chars — under free-tier 512 char limit) ───────────
 const ACCOUNTS = [
-  // Core VC / all-in pod
   "elonmusk", "chamath", "Jason", "DavidSacks", "pmarca", "a16z", "Friedberg", "eladgil",
-  // Core AI / tech
   "sama", "karpathy", "lexfridman", "ylecun",
-  // Neurotech / BCI
   "neuralink", "cb_doge", "NeuroTechX", "XFreeze", "tetsuoai",
-  // Emerging tech
   "alliekmiller", "rowancheung", "AndrewYNg",
 ];
 
 const ACCOUNT_QUERY =
   `(${ACCOUNTS.map((a) => `from:${a}`).join(" OR ")}) -is:retweet -is:reply lang:en`;
+
+// ── Content filter ────────────────────────────────────────────────────────────
+// A tweet must contain at least one tech signal term AND must not contain
+// any cynical/negative markers to pass through.
+
+const TECH_SIGNALS = [
+  "ai", "startup", "launch", "launches", "funding", "raise", "raised", "round",
+  "model", "bci", "neural", "neuro", "compute", "llm", "research", "agent",
+  "breakthrough", "invest", "venture", "built", "ship", "shipped", "product",
+  "technology", "open source", "demo", "release", "announced", "acquire",
+  "neurotech", "robot", "robotics", "automation", "chip", "semiconductor",
+  "quantum", "biotech", "implant", "billion", "trillion", "series a", "series b",
+  "partnership", "infrastructure", "data center", "inference", "training",
+  "multimodal", "foundation model", "open ai", "anthropic", "deepmind", "nvidia",
+  "hardware", "deploy", "api", "cloud", "agi", "reasoning", "benchmark",
+];
+
+const BLOCK_SIGNALS = [
+  "idiot", "moron", "stupid", "pathetic", "terrible", "awful",
+  "liar", "lie", "corrupt", "fraud", "scam", "criminal", "garbage", "trash",
+  "embarrassing", "shameful", "ridiculous", "clown", "hoax", "disgusting",
+  "propaganda", "evil", "loser", "failure", "incompetent", "disaster",
+  "hypocrite", "coward", "woke", "racist", "fascist", "communist",
+];
+
+const isTechContent = (text: string): boolean => {
+  const lower = text.toLowerCase();
+  for (const bad of BLOCK_SIGNALS) {
+    if (lower.includes(bad)) return false;
+  }
+  for (const term of TECH_SIGNALS) {
+    if (lower.includes(term)) return true;
+  }
+  return false;
+};
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -64,11 +94,13 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // ── Fetch from X API v2 — single request per day (free tier: 1 req / 15 min) ──
+    // ── Fetch from X API v2 (single request per day) ─────────────────────────
+    // Request 20 to have a pool to filter from — after content filtering,
+    // we return the top 10 emerging-tech posts ranked by engagement.
     const apiUrl =
       `https://api.twitter.com/2/tweets/search/recent` +
       `?query=${encodeURIComponent(ACCOUNT_QUERY)}` +
-      `&max_results=10` +
+      `&max_results=20` +
       `&tweet.fields=created_at,author_id,public_metrics,text` +
       `&expansions=author_id` +
       `&user.fields=name,username`;
@@ -76,9 +108,10 @@ Deno.serve(async (req: Request) => {
     const res = await fetch(apiUrl, {
       headers: { Authorization: `Bearer ${xBearerToken}` },
     });
+
     if (res.status === 429) {
       return new Response(
-        JSON.stringify({ error: "X API rate limit reached. The free tier allows 1 request per 15 minutes — please wait a moment and try again." }),
+        JSON.stringify({ error: "X API rate limit — free tier allows 1 request per 15 minutes. Wait a moment and try again." }),
         { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -92,7 +125,7 @@ Deno.serve(async (req: Request) => {
     const users: any[] = data.includes?.users ?? [];
 
     const userMap = new Map<string, { name: string; username: string }>(
-      users.map((u) => [u.id, { name: u.name, username: u.username }])
+      users.map((u: any) => [u.id, { name: u.name, username: u.username }])
     );
 
     const stories = tweets
@@ -109,10 +142,13 @@ Deno.serve(async (req: Request) => {
           created_at: tweet.created_at,
         };
       })
+      // Keep only informational emerging-tech content; drop cynical/political posts
+      .filter((t: any) => isTechContent(t.text))
+      // Rank by engagement (retweets weighted 2x — stronger signal of value)
       .sort((a: any, b: any) => (b.likes + b.retweets * 2) - (a.likes + a.retweets * 2))
-      .slice(0, 20);
+      .slice(0, 10);
 
-    // Cache via service role (shared across all users)
+    // Cache via service role (shared row, one fetch per day)
     const serviceClient = createClient(supabaseUrl, serviceRoleKey);
     const { data: inserted } = await serviceClient
       .from("daily_news")
