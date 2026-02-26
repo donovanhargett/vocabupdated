@@ -81,7 +81,7 @@ export const HomeTab = () => {
 
   useEffect(() => {
     loadWords();
-    loadDailyContent(contentDateRef.current);
+    if (user) loadDailyContent(contentDateRef.current);
 
     const channel = supabase
       .channel('vocab_changes')
