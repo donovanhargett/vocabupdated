@@ -167,6 +167,27 @@ Return ONLY a JSON object with keys: "word", "word_definition", "word_pronunciat
       .select()
       .single();
 
+    // Add the word of the day to the user's review deck (skip if already there)
+    const { data: existingWord } = await supabase
+      .from("vocab_words")
+      .select("id")
+      .eq("user_id", user.id)
+      .ilike("word", result.word)
+      .maybeSingle();
+
+    if (!existingWord) {
+      await supabase.from("vocab_words").insert({
+        user_id: user.id,
+        word: result.word,
+        definition: result.word_definition,
+        pronunciation: result.word_pronunciation || "",
+        tldr: "",
+        synonyms: "",
+        example_sentence: result.word_example || "",
+        next_review_date: new Date().toISOString(),
+      });
+    }
+
     return new Response(JSON.stringify(inserted || result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
