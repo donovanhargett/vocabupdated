@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { RefreshCw, Send, SkipForward } from 'lucide-react';
-import { supabase, supabaseUrl } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 
 interface VocabWord {
@@ -99,28 +99,14 @@ export const ReviewTab = () => {
 
     setGrading(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const response = await fetch(
-        `${supabaseUrl}/functions/v1/grade-sentence`,
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${session?.access_token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            word: currentWord.word,
-            definition: currentWord.definition,
-            userSentence: userSentence.trim(),
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to grade sentence');
-      }
-
-      const data = await response.json();
+      const { data, error } = await supabase.functions.invoke('grade-sentence', {
+        body: {
+          word: currentWord.word,
+          definition: currentWord.definition,
+          userSentence: userSentence.trim(),
+        },
+      });
+      if (error) throw new Error('Failed to grade sentence');
       setFeedback(data);
 
       await supabase.from('review_history').insert({

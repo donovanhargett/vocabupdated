@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Newspaper, ExternalLink, RefreshCw, Heart, Repeat2 } from 'lucide-react';
-import { supabase, supabaseUrl } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
 
 interface Story {
   id: string;
@@ -36,22 +36,9 @@ export const NewsTab = () => {
     setLoading(true);
     setError(null);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const response = await fetch(
-        `${supabaseUrl}/functions/v1/fetch-news`,
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${session?.access_token}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-      if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.error || 'Failed to fetch news');
-      }
-      setNews(await response.json());
+      const { data, error } = await supabase.functions.invoke('fetch-news', { body: {} });
+      if (error) throw new Error(error.message || 'Failed to fetch news');
+      setNews(data);
     } catch (err: any) {
       setError(err.message || 'Failed to load news');
     } finally {

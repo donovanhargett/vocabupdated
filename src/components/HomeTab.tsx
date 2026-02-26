@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Plus, Trash2, RefreshCw, Check, ChevronDown, ChevronUp } from 'lucide-react';
-import { supabase, supabaseUrl } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 
 interface DailyContent {
@@ -56,22 +56,10 @@ export const HomeTab = () => {
   const loadDailyContent = async (date: string) => {
     setDailyLoading(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const response = await fetch(
-        `${supabaseUrl}/functions/v1/generate-daily-content`,
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${session?.access_token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ date }),
-        }
-      );
-      if (response.ok) {
-        const data = await response.json();
-        setDailyContent(data);
-      }
+      const { data, error } = await supabase.functions.invoke('generate-daily-content', {
+        body: { date },
+      });
+      if (!error && data) setDailyContent(data);
     } catch (err) {
       console.error('Failed to load daily content:', err);
     } finally {
@@ -118,25 +106,10 @@ export const HomeTab = () => {
     if (!word.trim()) return;
     setGenerating(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const response = await fetch(
-        `${supabaseUrl}/functions/v1/generate-definition`,
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${session?.access_token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ word: word.trim() }),
-        }
-      );
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to generate definition');
-      }
-
-      const data = await response.json();
+      const { data, error } = await supabase.functions.invoke('generate-definition', {
+        body: { word: word.trim() },
+      });
+      if (error) throw new Error(error.message || 'Failed to generate definition');
       const example = Array.isArray(data.example) ? data.example.join(' ') : data.example;
       setPreview({
         definition: data.definition,

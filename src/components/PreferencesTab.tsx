@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { RefreshCw, AlertTriangle, Brain, Youtube, Music } from 'lucide-react';
-import { supabase, supabaseUrl } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
 
 interface WeeklyContent {
   week: string;
@@ -23,22 +23,10 @@ export const PreferencesTab = () => {
   const loadWeeklyContent = async () => {
     setLoading(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const response = await fetch(
-        `${supabaseUrl}/functions/v1/generate-weekly-content`,
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${session?.access_token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({}),
-        }
-      );
-      if (response.ok) {
-        const data = await response.json();
-        setWeeklyContent(data);
-      }
+      const { data, error } = await supabase.functions.invoke('generate-weekly-content', {
+        body: {},
+      });
+      if (!error && data) setWeeklyContent(data);
     } catch (err) {
       console.error('Failed to load weekly content:', err);
     } finally {

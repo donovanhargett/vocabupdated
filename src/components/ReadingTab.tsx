@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { BookOpen, FileText, Youtube, ExternalLink, Plus, Trash2, X, Circle, CheckCircle, AlertTriangle, Sparkles } from 'lucide-react';
-import { supabase, supabaseUrl } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 
 // ── Curated pool ───────────────────────────────────────────────────────────────
@@ -297,31 +297,21 @@ export const ReadingTab = () => {
     if (generating.has(type)) return;
     setGenerating(prev => new Set([...prev, type]));
     try {
-      const { data: { session } } = await supabase.auth.getSession();
       const seenUrls = [
         ...CURATED_POOL.filter(item => item.type === type).map(item => item.url),
         ...aiItems.filter(item => item.type === type).map(item => item.url),
       ];
-      const response = await fetch(
-        `${supabaseUrl}/functions/v1/generate-recommendation`,
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${session?.access_token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ type, seen_urls: seenUrls }),
-        }
-      );
-      if (response.ok) {
-        const newItem: AISuggestion = await response.json();
-        setAiItems(prev => [...prev, newItem]);
+      const { data: newItem, error } = await supabase.functions.invoke('generate-recommendation', {
+        body: { type, seen_urls: seenUrls },
+      });
+      if (!error && newItem) {
+        setAiItems(prev => [...prev, newItem as AISuggestion]);
         // Validate new YouTube items via noembed
-        if (newItem.type === 'youtube') {
-          const id = extractVideoId(newItem.url);
+        if ((newItem as AISuggestion).type === 'youtube') {
+          const id = extractVideoId((newItem as AISuggestion).url);
           if (id) {
             const valid = await validateYouTubeId(id);
-            if (!valid) setInvalidUrls(prev => new Set([...prev, newItem.url]));
+            if (!valid) setInvalidUrls(prev => new Set([...prev, (newItem as AISuggestion).url]));
           }
         }
       }
