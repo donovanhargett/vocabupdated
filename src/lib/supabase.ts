@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL || '').replace(/\/$/, '');
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 let supabase: any;
@@ -20,4 +20,4 @@ if (!supabaseUrl || !supabaseAnonKey) {
 	supabase = createClient(supabaseUrl, supabaseAnonKey);
 }
 
-export { supabase };
+export { supabase, supabaseUrl };

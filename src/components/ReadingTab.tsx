@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { BookOpen, FileText, Youtube, ExternalLink, Plus, Trash2, X, Circle, CheckCircle, AlertTriangle } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { BookOpen, FileText, Youtube, ExternalLink, Plus, Trash2, X, Circle, CheckCircle, AlertTriangle, Sparkles } from 'lucide-react';
+import { supabase, supabaseUrl } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 
 // ── Curated pool ───────────────────────────────────────────────────────────────
@@ -233,6 +233,7 @@ const TYPE_CONFIG = {
 type ReadStatus = 'reading' | 'read';
 
 interface UserEntry { id: string; type: string; author: string; title: string; description: string; url: string; }
+interface AISuggestion { id: string; type: string; author: string; title: string; description: string; url: string; }
 const emptyForm = { type: 'book', author: '', title: '', description: '', url: '' };
 
 // Extract YouTube video ID from a watch URL, null for channel links
@@ -260,10 +261,13 @@ export const ReadingTab = () => {
   const [saving, setSaving] = useState(false);
   const [progress, setProgress] = useState<Map<string, ReadStatus>>(new Map());
   const [invalidUrls, setInvalidUrls] = useState<Set<string>>(new Set());
+  const [aiItems, setAiItems] = useState<AISuggestion[]>([]);
+  const [generating, setGenerating] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     loadUserEntries();
     loadProgress();
+    loadAIItems();
     validateVideos();
   }, []);
 
@@ -278,6 +282,53 @@ export const ReadingTab = () => {
       const map = new Map<string, ReadStatus>();
       data.forEach(row => map.set(row.item_key, row.status as ReadStatus));
       setProgress(map);
+    }
+  };
+
+  const loadAIItems = async () => {
+    const { data } = await supabase
+      .from('ai_recommendations')
+      .select('id, type, author, title, description, url')
+      .order('created_at', { ascending: true });
+    if (data) setAiItems(data);
+  };
+
+  const generateRecommendation = async (type: string) => {
+    if (generating.has(type)) return;
+    setGenerating(prev => new Set([...prev, type]));
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const seenUrls = [
+        ...CURATED_POOL.filter(item => item.type === type).map(item => item.url),
+        ...aiItems.filter(item => item.type === type).map(item => item.url),
+      ];
+      const response = await fetch(
+        `${supabaseUrl}/functions/v1/generate-recommendation`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${session?.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ type, seen_urls: seenUrls }),
+        }
+      );
+      if (response.ok) {
+        const newItem: AISuggestion = await response.json();
+        setAiItems(prev => [...prev, newItem]);
+        // Validate new YouTube items via noembed
+        if (newItem.type === 'youtube') {
+          const id = extractVideoId(newItem.url);
+          if (id) {
+            const valid = await validateYouTubeId(id);
+            if (!valid) setInvalidUrls(prev => new Set([...prev, newItem.url]));
+          }
+        }
+      }
+    } catch {
+      // Silent fail — generation is best-effort
+    } finally {
+      setGenerating(prev => { const s = new Set(prev); s.delete(type); return s; });
     }
   };
 
@@ -296,7 +347,7 @@ export const ReadingTab = () => {
     if (bad.size > 0) setInvalidUrls(bad);
   };
 
-  const cycleStatus = async (itemKey: string) => {
+  const cycleStatus = async (itemKey: string, itemType?: string) => {
     const current = progress.get(itemKey);
     if (!current) {
       await supabase.from('reading_progress').upsert(
@@ -310,6 +361,8 @@ export const ReadingTab = () => {
         { onConflict: 'user_id,item_key' }
       );
       setProgress(new Map(progress).set(itemKey, 'read'));
+      // Trigger AI generation for this category so the pool never runs dry
+      if (itemType) generateRecommendation(itemType);
     } else {
       await supabase.from('reading_progress').delete().eq('user_id', user?.id).eq('item_key', itemKey);
       const m = new Map(progress); m.delete(itemKey); setProgress(m);
@@ -332,35 +385,42 @@ export const ReadingTab = () => {
     setUserEntries(userEntries.filter(e => e.id !== id));
   };
 
-  // Returns the slice of curated items to show for a given type:
+  // Returns the slice of items to show for a given type (curated + AI):
   // all 'reading' items + enough 'unread' items to fill up to VISIBLE_COUNT
   // Items marked 'read' are hidden — the next unread slides in automatically
   const getVisibleCurated = (type: string) => {
-    const pool = CURATED_POOL.filter(item => item.type === type);
-    const readingItems = pool.filter(item => progress.get(item.url) === 'reading');
-    const unreadItems = pool.filter(item => !progress.has(item.url));
+    const curatedPool = CURATED_POOL.filter(item => item.type === type);
+    const aiPool = aiItems.filter(item => item.type === type);
+    const allPool = [...curatedPool, ...aiPool];
+    const readingItems = allPool.filter(item => progress.get(item.url) === 'reading');
+    const unreadItems = allPool.filter(item => !progress.has(item.url));
     const unreadSlots = Math.max(0, (VISIBLE_COUNT[type] ?? 5) - readingItems.length);
     return [...readingItems, ...unreadItems.slice(0, unreadSlots)];
   };
 
-  const poolTotal = (type: string) => CURATED_POOL.filter(item => item.type === type).length;
-  const readCount = (type: string) =>
-    CURATED_POOL.filter(item => item.type === type && progress.get(item.url) === 'read').length;
+  const poolTotal = (type: string) =>
+    CURATED_POOL.filter(item => item.type === type).length +
+    aiItems.filter(item => item.type === type).length;
+  const readCount = (type: string) => {
+    const curatedPool = CURATED_POOL.filter(item => item.type === type);
+    const aiPool = aiItems.filter(item => item.type === type);
+    return [...curatedPool, ...aiPool].filter(item => progress.get(item.url) === 'read').length;
+  };
 
-  const StatusButton = ({ itemKey }: { itemKey: string }) => {
+  const StatusButton = ({ itemKey, itemType }: { itemKey: string; itemType?: string }) => {
     const status = progress.get(itemKey);
     if (status === 'read') return (
-      <button onClick={() => cycleStatus(itemKey)} title="Read — click to mark unread" className="transition-colors">
+      <button onClick={() => cycleStatus(itemKey, itemType)} title="Read — click to mark unread" className="transition-colors">
         <CheckCircle size={16} className="text-green-500" />
       </button>
     );
     if (status === 'reading') return (
-      <button onClick={() => cycleStatus(itemKey)} title="Reading — click to mark read" className="transition-colors">
+      <button onClick={() => cycleStatus(itemKey, itemType)} title="Reading — click to mark read" className="transition-colors">
         <BookOpen size={16} className="text-blue-500" />
       </button>
     );
     return (
-      <button onClick={() => cycleStatus(itemKey)} title="Mark as reading" className="transition-colors">
+      <button onClick={() => cycleStatus(itemKey, itemType)} title="Mark as reading" className="transition-colors">
         <Circle size={16} className="text-gray-300 dark:text-gray-600 hover:text-gray-400 dark:hover:text-gray-500" />
       </button>
     );
@@ -465,11 +525,11 @@ export const ReadingTab = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {/* Curated items (visible slice from pool) */}
+                    {/* Curated + AI items (visible slice from pool) */}
                     {visibleCurated.map((item, i) => {
                       const isInvalid = invalidUrls.has(item.url);
                       return (
-                        <tr key={i} className="border-b border-gray-50 dark:border-gray-700/50 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors">
+                        <tr key={item.url ?? i} className="border-b border-gray-50 dark:border-gray-700/50 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors">
                           <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">{item.title}</td>
                           <td className="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs">{item.author}</td>
                           <td className="px-4 py-3">
@@ -485,12 +545,23 @@ export const ReadingTab = () => {
                             )}
                           </td>
                           <td className="px-2 py-3 text-center">
-                            <StatusButton itemKey={item.url} />
+                            <StatusButton itemKey={item.url} itemType={type} />
                           </td>
                           <td className="px-2 py-3" />
                         </tr>
                       );
                     })}
+                    {/* Generating indicator */}
+                    {generating.has(type) && (
+                      <tr className="border-b border-gray-50 dark:border-gray-700/50 last:border-0">
+                        <td colSpan={5} className="px-4 py-2.5">
+                          <span className="inline-flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500 animate-pulse">
+                            <Sparkles size={11} />
+                            Finding next recommendation…
+                          </span>
+                        </td>
+                      </tr>
+                    )}
                     {/* User-added items */}
                     {userItems.map((item) => (
                       <tr key={item.id} className="border-b border-gray-50 dark:border-gray-700/50 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors">
@@ -503,7 +574,7 @@ export const ReadingTab = () => {
                           </a>
                         </td>
                         <td className="px-2 py-3 text-center">
-                          <StatusButton itemKey={item.id} />
+                          <StatusButton itemKey={item.id} itemType={type} />
                         </td>
                         <td className="px-2 py-3">
                           <button onClick={() => handleDelete(item.id)}

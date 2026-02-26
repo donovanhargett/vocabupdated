@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { RefreshCw, Send, SkipForward } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { supabase, supabaseUrl } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 
 interface VocabWord {
@@ -101,7 +101,7 @@ export const ReviewTab = () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/grade-sentence`,
+        `${supabaseUrl}/functions/v1/grade-sentence`,
         {
           method: 'POST',
           headers: {

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Newspaper, ExternalLink, RefreshCw, Heart, Repeat2 } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { supabase, supabaseUrl } from '../lib/supabase';
 
 interface Story {
   id: string;
@@ -38,7 +38,7 @@ export const NewsTab = () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fetch-news`,
+        `${supabaseUrl}/functions/v1/fetch-news`,
         {
           method: 'POST',
           headers: {

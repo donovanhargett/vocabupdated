@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { RefreshCw, AlertTriangle, Brain, Youtube, Music } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { supabase, supabaseUrl } from '../lib/supabase';
 
 interface WeeklyContent {
   week: string;
@@ -25,7 +25,7 @@ export const PreferencesTab = () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-weekly-content`,
+        `${supabaseUrl}/functions/v1/generate-weekly-content`,
         {
           method: 'POST',
           headers: {

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Plus, Trash2, RefreshCw, Check, ChevronDown, ChevronUp } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { supabase, supabaseUrl } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 
 interface DailyContent {
@@ -12,6 +12,9 @@ interface DailyContent {
   idiom_example: string;
   topic_title: string;
   topic_explanation: string;
+  topic_why_it_matters: string;
+  topic_first_principles: string;
+  topic_questions: string[];
   topic_feynman: string;
 }
 
@@ -55,7 +58,7 @@ export const HomeTab = () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-daily-content`,
+        `${supabaseUrl}/functions/v1/generate-daily-content`,
         {
           method: 'POST',
           headers: {
@@ -117,7 +120,7 @@ export const HomeTab = () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-definition`,
+        `${supabaseUrl}/functions/v1/generate-definition`,
         {
           method: 'POST',
           headers: {
@@ -273,10 +276,20 @@ export const HomeTab = () => {
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 animate-pulse">
             <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/4 mb-4" />
-            <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mb-3" />
-            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full mb-2" />
-            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-5/6 mb-2" />
-            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-4/6" />
+            <div className="h-7 bg-gray-200 dark:bg-gray-700 rounded w-1/2 mb-5" />
+            <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/6 mb-2" />
+            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full mb-1" />
+            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-5/6 mb-5" />
+            <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/6 mb-2" />
+            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full mb-1" />
+            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-4/6 mb-5" />
+            <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/6 mb-2" />
+            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full mb-1" />
+            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-5" />
+            <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/6 mb-2" />
+            {[0,1,2,3].map(i => (
+              <div key={i} className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full mb-2" />
+            ))}
           </div>
         </div>
       ) : dailyContent ? (
@@ -304,13 +317,53 @@ export const HomeTab = () => {
 
           {dailyContent.topic_title && (
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 border-l-4 border-emerald-500">
-              <p className="text-xs font-semibold text-emerald-500 uppercase tracking-wider mb-2">Topic of the Day</p>
-              <h4 className="text-xl font-bold text-gray-900 dark:text-white mb-3">{dailyContent.topic_title}</h4>
-              <p className="text-gray-700 dark:text-gray-300 mb-4">{dailyContent.topic_explanation}</p>
-              <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-lg p-4 border border-emerald-100 dark:border-emerald-800">
-                <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide mb-1">Feynman Version</p>
-                <p className="text-sm text-gray-700 dark:text-gray-300 italic">{dailyContent.topic_feynman}</p>
+              <p className="text-xs font-semibold text-emerald-500 uppercase tracking-wider mb-2">Deep Dive of the Day</p>
+              <h4 className="text-2xl font-bold text-gray-900 dark:text-white mb-5">{dailyContent.topic_title}</h4>
+
+              {/* What it is */}
+              <div className="mb-5">
+                <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-2">What it is</p>
+                <p className="text-gray-700 dark:text-gray-300 leading-relaxed">{dailyContent.topic_explanation}</p>
               </div>
+
+              {/* Why it matters */}
+              {dailyContent.topic_why_it_matters && (
+                <div className="mb-5">
+                  <p className="text-xs font-semibold text-amber-500 uppercase tracking-wide mb-2">Why it matters</p>
+                  <p className="text-gray-700 dark:text-gray-300 leading-relaxed">{dailyContent.topic_why_it_matters}</p>
+                </div>
+              )}
+
+              {/* First principles */}
+              {dailyContent.topic_first_principles && (
+                <div className="mb-5">
+                  <p className="text-xs font-semibold text-blue-500 uppercase tracking-wide mb-2">From first principles</p>
+                  <p className="text-gray-700 dark:text-gray-300 leading-relaxed">{dailyContent.topic_first_principles}</p>
+                </div>
+              )}
+
+              {/* Questions to ask */}
+              {dailyContent.topic_questions?.length > 0 && (
+                <div className="mb-5">
+                  <p className="text-xs font-semibold text-purple-500 uppercase tracking-wide mb-2">Questions to explore</p>
+                  <ul className="space-y-2">
+                    {dailyContent.topic_questions.map((q, i) => (
+                      <li key={i} className="flex gap-2 text-gray-700 dark:text-gray-300">
+                        <span className="text-purple-400 font-bold shrink-0">{i + 1}.</span>
+                        <span>{q}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Plain English */}
+              {dailyContent.topic_feynman && (
+                <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-lg p-4 border border-emerald-100 dark:border-emerald-800">
+                  <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide mb-1">In plain English</p>
+                  <p className="text-sm text-gray-700 dark:text-gray-300 italic">{dailyContent.topic_feynman}</p>
+                </div>
+              )}
             </div>
           )}
         </div>
