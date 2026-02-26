@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 interface DailyContent {
   word: string;
   word_definition: string;
+  word_pronunciation: string;
   word_example: string;
   idiom: string;
   idiom_explanation: string;
@@ -270,7 +271,12 @@ export const HomeTab = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 border-l-4 border-blue-500">
               <p className="text-xs font-semibold text-blue-500 uppercase tracking-wider mb-2">Word of the Day</p>
-              <h4 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">{dailyContent.word}</h4>
+              <div className="flex items-baseline gap-2 mb-2">
+                <h4 className="text-2xl font-bold text-gray-900 dark:text-white">{dailyContent.word}</h4>
+                {dailyContent.word_pronunciation && (
+                  <span className="text-sm text-gray-400 dark:text-gray-500 font-mono">{dailyContent.word_pronunciation}</span>
+                )}
+              </div>
               <p className="text-gray-700 dark:text-gray-300 mb-4">{dailyContent.word_definition}</p>
               <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
                 <p className="text-sm text-gray-600 dark:text-gray-300 italic">"{dailyContent.word_example}"</p>
