@@ -66,13 +66,21 @@ export const NewsTab = () => {
     fetchPH();
   }, []);
 
+  const invokeWithError = async (fn: string, body: object) => {
+    const { data, error } = await supabase.functions.invoke(fn, { body });
+    if (error) {
+      // Extract the actual message from the response body if available
+      const body = await (error as any).context?.json?.().catch(() => null);
+      throw new Error(body?.error || error.message || `Failed to call ${fn}`);
+    }
+    return data;
+  };
+
   const fetchNews = async () => {
     setNewsLoading(true);
     setNewsError(null);
     try {
-      const { data, error } = await supabase.functions.invoke('fetch-news', { body: {} });
-      if (error) throw new Error(error.message || 'Failed to fetch news');
-      setNews(data);
+      setNews(await invokeWithError('fetch-news', {}));
     } catch (err: any) {
       setNewsError(err.message || 'Failed to load news');
     } finally {
@@ -84,9 +92,7 @@ export const NewsTab = () => {
     setPhLoading(true);
     setPhError(null);
     try {
-      const { data, error } = await supabase.functions.invoke('fetch-ph-products', { body: {} });
-      if (error) throw new Error(error.message || 'Failed to fetch products');
-      setPh(data);
+      setPh(await invokeWithError('fetch-ph-products', {}));
     } catch (err: any) {
       setPhError(err.message || 'Failed to load Product Hunt');
     } finally {
