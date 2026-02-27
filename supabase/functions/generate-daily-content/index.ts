@@ -100,7 +100,13 @@ Deno.serve(async (req: Request) => {
 
 ${exclusionBlock ? `STRICT EXCLUSIONS — these have been used recently. You MUST pick something entirely different:\n${exclusionBlock}\n` : ""}
 
-WORD OF THE DAY: Choose a sophisticated, uncommon word that Michael Tracey — the independent journalist known for contrarian foreign policy takes, media criticism, and on-the-ground conflict reporting — might use in his writing or tweets. Draw from: political science, philosophy, diplomacy, legal theory, classical rhetoric, historiography, military strategy. The word must be genuinely rare and precise — not just "eloquent" or "astute". Include a tight definition, a pronunciation in simple phonetic spelling (e.g. "ih-KWIV-uh-kul"), and a punchy example sentence written in his combative voice.
+WORD OF THE DAY: Choose a sophisticated, uncommon word that Michael Tracey — the independent journalist known for contrarian foreign policy takes, media criticism, and on-the-ground conflict reporting — might use in his writing or tweets. Draw from: political science, philosophy, diplomacy, legal theory, classical rhetoric, historiography, military strategy. The word must be genuinely rare and precise — not just "eloquent" or "astute". Generate ALL of the following for it:
+
+- 'word_definition': One formal, complete sentence. Buttoned-up dictionary style.
+- 'word_tldr': A funny one-liner — a mini situation or character sketch, NOT synonyms. Examples: "something mildly inconvenient happens and he treats it like a CIA operation" / "seven beers in and suddenly he's a zealot for personal responsibility". One sentence, absurd, specific.
+- 'word_pronunciation': Simple readable phonetic spelling. Uppercase the stressed syllable. Examples: "SEM-in-ul" / "THWORT" / "ih-KWIV-uh-kul". No IPA symbols.
+- 'word_synonyms': Array of exactly 2 single-word synonyms that are easy to understand.
+- 'word_example': Exactly 3 short sentences as a JSON array. EVERY sentence must use the word. Sentences 1 and 2: frat/lax bro world — drinking, house parties, pregames, tailgates, the gym, beer pong, group chats, Sunday Scaries, Uber home from the bar. Lowercase fine, punchy and funny. Sentence 3: professional/corporate — a sharp exec or consultant using the word naturally in a meeting or email, no forced definitions.
 
 IDIOM/PHRASE OF THE DAY: Choose a phrase or expression that David Sacks — tech investor, All-In Podcast co-host, and former PayPal exec — actually uses or would use. His vocabulary spans: VC deal dynamics, political commentary, media criticism, power structures, regulatory fights, and tech strategy. Pick from a WIDE variety of his registers — not just geopolitical phrases. Examples of the type of variety to draw from:
 - Deal/investing: "cram-down round", "down-round financing", "bridge to nowhere", "party round", "broken cap table"
@@ -124,7 +130,7 @@ Generate five sections:
 
 5. 'topic_feynman': 2-3 sentences. Explain it like the reader is in 5th grade. One vivid analogy. Zero jargon.
 
-Return ONLY a JSON object with keys: "word", "word_definition", "word_pronunciation", "word_example", "idiom", "idiom_explanation", "idiom_example", "topic_title", "topic_explanation", "topic_why_it_matters", "topic_first_principles", "topic_questions", "topic_feynman"`,
+Return ONLY a JSON object with keys: "word", "word_definition", "word_tldr", "word_pronunciation", "word_synonyms", "word_example", "idiom", "idiom_explanation", "idiom_example", "topic_title", "topic_explanation", "topic_why_it_matters", "topic_first_principles", "topic_questions", "topic_feynman"`,
           },
           {
             role: "user",
@@ -176,14 +182,21 @@ Return ONLY a JSON object with keys: "word", "word_definition", "word_pronunciat
       .maybeSingle();
 
     if (!existingWord) {
+      const wordExample = Array.isArray(result.word_example)
+        ? result.word_example.join(" ")
+        : result.word_example || "";
+      const wordSynonyms = Array.isArray(result.word_synonyms)
+        ? result.word_synonyms.join(", ")
+        : result.word_synonyms || "";
+
       await supabase.from("vocab_words").insert({
         user_id: user.id,
         word: result.word,
         definition: result.word_definition,
         pronunciation: result.word_pronunciation || "",
-        tldr: "",
-        synonyms: "",
-        example_sentence: result.word_example || "",
+        tldr: result.word_tldr || "",
+        synonyms: wordSynonyms,
+        example_sentence: wordExample,
         next_review_date: new Date().toISOString(),
       });
     }
