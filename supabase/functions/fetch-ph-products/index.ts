@@ -18,7 +18,8 @@ Deno.serve(async (req: Request) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const phToken = Deno.env.get("PH_API_TOKEN");
+    const phClientId = Deno.env.get("PH_CLIENT_ID");
+    const phClientSecret = Deno.env.get("PH_CLIENT_SECRET");
     const authHeader = req.headers.get("Authorization");
 
     if (!authHeader) {
@@ -39,11 +40,31 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    if (!phToken) {
-      return new Response(JSON.stringify({ error: "Product Hunt API token not configured. Add PH_API_TOKEN to Supabase secrets." }), {
+    if (!phClientId || !phClientSecret) {
+      return new Response(JSON.stringify({ error: "Product Hunt credentials not configured. Add PH_CLIENT_ID and PH_CLIENT_SECRET to Supabase secrets." }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    // Exchange client credentials for an access token
+    const tokenRes = await fetch("https://api.producthunt.com/v2/oauth/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Accept": "application/json" },
+      body: JSON.stringify({
+        client_id: phClientId,
+        client_secret: phClientSecret,
+        redirect_uri: "urn:ietf:wg:oauth:2.0:oob",
+        grant_type: "client_credentials",
+      }),
+    });
+
+    if (!tokenRes.ok) {
+      const err = await tokenRes.text();
+      throw new Error(`Product Hunt OAuth error ${tokenRes.status}: ${err}`);
+    }
+
+    const { access_token: phToken } = await tokenRes.json();
+    if (!phToken) throw new Error("Product Hunt did not return an access token");
 
     const today = getDateString();
 
