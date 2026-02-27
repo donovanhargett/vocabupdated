@@ -101,9 +101,10 @@ Deno.serve(async (req: Request) => {
       `https://api.twitter.com/2/tweets/search/recent` +
       `?query=${encodeURIComponent(ACCOUNT_QUERY)}` +
       `&max_results=20` +
-      `&tweet.fields=created_at,author_id,public_metrics,text` +
-      `&expansions=author_id` +
-      `&user.fields=name,username`;
+      `&tweet.fields=created_at,author_id,public_metrics,text,attachments` +
+      `&expansions=author_id,attachments.media_keys` +
+      `&user.fields=name,username` +
+      `&media.fields=url,preview_image_url,type`;
 
     const res = await fetch(apiUrl, {
       headers: { Authorization: `Bearer ${xBearerToken}` },
@@ -123,19 +124,38 @@ Deno.serve(async (req: Request) => {
     const data = await res.json();
     const tweets: any[] = data.data ?? [];
     const users: any[] = data.includes?.users ?? [];
+    const mediaItems: any[] = data.includes?.media ?? [];
 
     const userMap = new Map<string, { name: string; username: string }>(
       users.map((u: any) => [u.id, { name: u.name, username: u.username }])
     );
 
+    // Map media_key → URL (photo url, or video preview image)
+    const mediaMap = new Map<string, string>(
+      mediaItems
+        .map((m: any) => [m.media_key, m.url || m.preview_image_url])
+        .filter(([, url]) => !!url)
+    );
+
     const stories = tweets
       .map((tweet: any) => {
         const author = userMap.get(tweet.author_id);
+        const images = (tweet.attachments?.media_keys ?? [])
+          .map((key: string) => mediaMap.get(key))
+          .filter(Boolean) as string[];
+
+        // Strip trailing t.co media link — it's the attached image, shown separately
+        let text = tweet.text;
+        if (images.length > 0) {
+          text = text.replace(/\s*https:\/\/t\.co\/\S+$/, "").trim();
+        }
+
         return {
           id: tweet.id,
           author: author?.name ?? "Unknown",
           username: author?.username ?? "",
-          text: tweet.text,
+          text,
+          images,
           url: `https://x.com/${author?.username ?? "x"}/status/${tweet.id}`,
           likes: tweet.public_metrics?.like_count ?? 0,
           retweets: tweet.public_metrics?.retweet_count ?? 0,
