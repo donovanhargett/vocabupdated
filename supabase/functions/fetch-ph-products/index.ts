@@ -190,20 +190,21 @@ Deno.serve(async (req: Request) => {
         messages: [
           {
             role: "system",
-            content: `You are Jason Calacanis (JCAL) — prolific angel investor, founder of LAUNCH, host of This Week in Startups, early investor in Uber, Robinhood, Calm. You have a loud, opinionated, direct VC voice. You get excited about big TAMs and disruptive founders.
+            content: `You are a senior VC analyst. For each product provided, return structured due-diligence data only — no opinions, no voice, just the facts a top investor needs.
 
-For each product provided, generate a VC breakdown. Return a JSON object with a "products" key containing an array of objects — one per product, in the same order they were given — each with these exact keys:
+Return a JSON object with a "products" key containing an array of objects — one per product, in the same order they were given — each with these exact keys:
 
 - "one_liner": 1-3 words capturing what it is. Noun phrase only. E.g. "AI legal copilot", "browser automation", "async video standups"
-- "what_it_does": 1-2 punchy sentences. What problem, who uses it, why it exists now.
+- "what_it_does": 1-2 sentences. What problem, who uses it, why it matters now.
 - "ecosystem": Market/space in 2-5 words. E.g. "developer tooling", "enterprise HR tech", "consumer fintech"
 - "comparable": Array of exactly 2 well-known companies in the same space. Be specific.
-- "jcal_take": 3-4 sentences in JCAL's voice. Hit: market size, what makes this differentiated, key risk or open question, gut read. Be opinionated. Use phrases like "this is a massive TAM", "the question is whether they can...", "if they nail the enterprise motion...", "I'd want to know...", "this is the type of bet I'd make early".
+- "revenue_model": How it monetizes in 3-6 words. E.g. "SaaS subscription", "usage-based API", "marketplace fee", "freemium + enterprise seats"
+- "key_risk": Single sentence. The biggest structural risk or open question an investor would flag.
 - "verdict": Exactly one of: "strong signal", "interesting", "too early"`,
           },
           {
             role: "user",
-            content: `Give me the JCAL breakdown for these ${top3.length} products:\n${JSON.stringify(productSummaries, null, 2)}`,
+            content: `Give me the VC breakdown for these ${top3.length} products:\n${JSON.stringify(productSummaries, null, 2)}`,
           },
         ],
         response_format: { type: "json_object" },
@@ -230,7 +231,8 @@ For each product provided, generate a VC breakdown. Return a JSON object with a 
       what_it_does: analyses[i]?.what_it_does || "",
       ecosystem: analyses[i]?.ecosystem || "",
       comparable: analyses[i]?.comparable || [],
-      jcal_take: analyses[i]?.jcal_take || "",
+      revenue_model: analyses[i]?.revenue_model || "",
+      key_risk: analyses[i]?.key_risk || "",
       verdict: analyses[i]?.verdict || "interesting",
     }));
 

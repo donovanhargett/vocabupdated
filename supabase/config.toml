@@ -1,0 +1,24 @@
+# Supabase project configuration
+# All edge functions verify JWTs manually inside their handlers via auth.getUser(token),
+# so we disable the gateway-level JWT check to avoid "re-enable legacy secret" churn on deploy.
+
+[functions.fetch-ph-products]
+verify_jwt = false
+
+[functions.fetch-news]
+verify_jwt = false
+
+[functions.generate-daily-content]
+verify_jwt = false
+
+[functions.generate-definition]
+verify_jwt = false
+
+[functions.generate-weekly-content]
+verify_jwt = false
+
+[functions.grade-sentence]
+verify_jwt = false
+
+[functions.generate-recommendation]
+verify_jwt = false
