@@ -64,7 +64,7 @@ const CATEGORIES = [
   { key: 'neurotech', name: 'Neurotech', emoji: '🧠', color: 'bg-purple-500' },
   { key: 'intelligence', name: 'Intelligence', emoji: '💡', color: 'bg-blue-500' },
   { key: 'general', name: 'General Tech', emoji: '🔥', color: 'bg-red-500' },
-  { key: 'hrv', name: 'HRV', emoji: '❤️', color: 'bg-rose-500' },
+  { key: 'hrv', name: 'Heart Rate Variability', emoji: '❤️', color: 'bg-rose-500' },
 ];
 
 const getSourceBadge = (source: string) => {

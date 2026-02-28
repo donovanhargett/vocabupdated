@@ -47,118 +47,45 @@ const CATEGORIES: Record<
 > = {
   openclaw: {
     name: "OpenClaw",
-    xQueries: [
-      '"openclaw" OR "open claw" OR @openclawai -is:retweet lang:en',
-    ],
-    subreddits: ["openclaw", "ArtificialIntelligence", "LocalLLaMA", "ChatGPT"],
-    hnKeywords: ["openclaw", "open claw", "ai agent"],
-    briefPrompt:
-      "OpenClaw AI platform — agent framework, skills, deployment, community updates",
+    xQueries: ["openclaw OR ai agent"],
+    subreddits: ["openclaw", "ArtificialIntelligence", "LocalLLaMA", "ChatGPT", "machinelearning"],
+    hnKeywords: ["openclaw", "ai agent"],
+    briefPrompt: "OpenClaw AI platform — agent framework, automation, skills, deployment",
   },
   biotech: {
     name: "Biotech",
-    xQueries: [
-      "CRISPR OR gene therapy OR mRNA OR FDA approval OR clinical trial -is:retweet lang:en",
-      "drug discovery OR gene editing OR cell therapy OR biotech -is:retweet lang:en",
-    ],
-    subreddits: ["biotech", "genomics", "labrats", "bioinformatics"],
-    hnKeywords: [
-      "biotech",
-      "crispr",
-      "gene therapy",
-      "mrna",
-      "fda",
-      "clinical trial",
-      "drug discovery",
-      "genomics",
-    ],
-    briefPrompt:
-      "Biotechnology — gene editing, drug discovery, clinical trials, FDA, therapeutics, diagnostics",
+    xQueries: ["biotech OR CRISPR OR gene therapy"],
+    subreddits: ["biotech", "genomics", "bioinformatics", "science", "medicine"],
+    hnKeywords: ["biotech", "crispr", "gene therapy", "drug discovery"],
+    briefPrompt: "Biotech — gene editing, drug discovery, clinical trials, FDA, therapeutics",
   },
   neurotech: {
     name: "Neurotech",
-    xQueries: [
-      "neuralink OR brain-computer interface OR BCI OR neural implant -is:retweet lang:en",
-      "neurostimulation OR EEG OR brain mapping OR connectome -is:retweet lang:en",
-    ],
-    subreddits: ["neurotechnology", "neuralink", "neuroscience", "BCI"],
-    hnKeywords: [
-      "neuralink",
-      "brain computer interface",
-      "bci",
-      "neural implant",
-      "neuroprosthetic",
-      "eeg",
-      "brain machine",
-    ],
-    briefPrompt:
-      "Neurotechnology — brain-computer interfaces, neural implants, neuralink, EEG, brain mapping",
+    xQueries: ["neuralink OR brain-computer interface OR BCI"],
+    subreddits: ["neurotechnology", "neuroscience", "neuralink", "cognitivescience"],
+    hnKeywords: ["neuralink", "bci", "brain computer", "neuro"],
+    briefPrompt: "Neurotechnology — brain-computer interfaces, neural implants, brain research",
   },
   intelligence: {
     name: "Intelligence",
-    xQueries: [
-      "cognitive enhancement OR nootropics OR IQ research OR fluid intelligence -is:retweet lang:en",
-      "neuroplasticity OR brain training OR cognitive science -is:retweet lang:en",
-    ],
-    subreddits: [
-      "cognitivescience",
-      "nootropics",
-      "neuropsychology",
-      "intelligence",
-    ],
-    hnKeywords: [
-      "cognitive",
-      "intelligence",
-      "nootropics",
-      "neuroplasticity",
-      "brain training",
-      "iq",
-    ],
-    briefPrompt:
-      "Intelligence & cognition — cognitive enhancement, nootropics, brain training, IQ research, neuroplasticity",
+    xQueries: ["cognitive enhancement OR nootropics OR IQ"],
+    subreddits: ["cognitivescience", "nootropics", "psychology", "inteligence"],
+    hnKeywords: ["cognitive", "intelligence", "nootropics", "brain"],
+    briefPrompt: "Intelligence & cognition — cognitive enhancement, brain training, nootropics",
   },
   general: {
     name: "General Tech",
-    xQueries: [
-      "AI agent OR autonomous AI OR open source AI OR LLM OR GPT -is:retweet lang:en",
-      "startup funding OR YC OR Series A OR tech launch -is:retweet lang:en",
-    ],
-    subreddits: ["technology", "programming", "machinelearning", "artificial"],
-    hnKeywords: [
-      "ai",
-      "llm",
-      "gpt",
-      "startup",
-      "open source",
-      "machine learning",
-    ],
-    briefPrompt:
-      "General technology — AI/ML, startups, open source, software, major tech news",
+    xQueries: ["AI OR technology OR startup"],
+    subreddits: ["technology", "programming", "startups", "tech", "software"],
+    hnKeywords: ["tech", "ai", "startup", "software"],
+    briefPrompt: "General technology — AI, startups, software, tech news",
   },
   hrv: {
-    name: "Heart Rate Variability",
-    xQueries: [
-      "heart rate variability OR HRV OR vagal tone OR autonomic -is:retweet lang:en",
-      "HRV training OR HRV biofeedback OR WHOOP OR Oura -is:retweet lang:en",
-    ],
-    subreddits: [
-      "hrv",
-      "quantifiedself",
-      "biohacking",
-      "whoop",
-      "ouraring",
-      "Fitness",
-      "health",
-    ],
-    hnKeywords: [
-      "heart rate variability",
-      "hrv",
-      "vagal tone",
-      "autonomic",
-      "biofeedback",
-    ],
-    briefPrompt:
-      "Heart Rate Variability — HRV science, biofeedback, wearables (WHOOP, Oura), recovery, stress management, autonomic health",
+    name: "HRV",
+    xQueries: ["heart rate variability", "HRV training", "vagal tone"],
+    subreddits: ["hrv", "quantifiedself", "biohacking"],
+    hnKeywords: ["heart rate variability", "HRV", "vagal tone", "biofeedback", "recovery"],
+    briefPrompt: "Heart Rate Variability — how to measure, improve and optimize HRV for better health and recovery",
   },
 };
 
@@ -294,74 +221,119 @@ const fetchX = async (queries: string[]): Promise<RawSource[]> => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// REDDIT SOURCE (via old.reddit.com - less restrictive)
+// GOOGLE NEWS RSS FEEDS - More reliable than Reddit
+// ─────────────────────────────────────────────────────────────────────────────
+
+const fetchGoogleNews = async (topics: string[]): Promise<RawSource[]> => {
+  const allStories: RawSource[] = [];
+  
+  console.log("Google News: Fetching topics:", topics.join(", "));
+  
+  for (const topic of topics) {
+    try {
+      const res = await fetch(
+        `https://news.google.com/rss/search?q=${encodeURIComponent(topic)}&hl=en-US&gl=US&ceid=US:en`,
+        { headers: { "User-Agent": "Mozilla/5.0" } }
+      );
+      
+      if (!res.ok) {
+        console.warn(`Google News ${topic}: ${res.status}`);
+        continue;
+      }
+      
+      const xml = await res.text();
+      const itemMatches = xml.match(/<item>([\s\S]*?)<\/item>/g) || [];
+      console.log(`Google News ${topic}: ${itemMatches.length} items`);
+      
+      for (const item of itemMatches.slice(0, 8)) {
+        const titleMatch = item.match(/<title><!\[CDATA\[(.*?)\]\]><\/title>|<title>(.*?)<\/title>/);
+        const linkMatch = item.match(/<link>(.*?)<\/link>/);
+        const dateMatch = item.match(/<pubDate>(.*?)<\/pubDate>/);
+        const sourceMatch = item.match(/<source[^>]*>(.*?)<\/source>/);
+        
+        const title = titleMatch ? (titleMatch[1] || titleMatch[2] || "") : "";
+        if (!title || title === "-") continue;
+        
+        allStories.push({
+          title: title,
+          snippet: "",
+          url: linkMatch ? linkMatch[1] : "",
+          source: sourceMatch ? sourceMatch[1] : "Google News",
+          author: "",
+          engagement: 1,
+          created_at: dateMatch ? new Date(dateMatch[1]).toISOString() : new Date().toISOString(),
+        });
+      }
+    } catch (e) {
+      console.error(`Google News ${topic} error:`, e);
+    }
+  }
+  
+  return allStories;
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// REDDIT SOURCE (via RSS - kept as backup)
 // ─────────────────────────────────────────────────────────────────────────────
 
 const fetchRedditPosts = async (subreddits: string[]): Promise<RawSource[]> => {
   const allStories: RawSource[] = [];
 
-  console.log("Reddit (old): Fetching from:", subreddits.join(", "));
+  console.log("Reddit (RSS): Fetching from:", subreddits.join(", "));
   
   for (const sub of subreddits) {
     try {
-      // Try old.reddit.com first (more permissive)
-      let res = await fetch(
-        `https://old.reddit.com/r/${sub}/hot.json?limit=15`,
+      // Use RSS feed - no API authentication needed
+      const res = await fetch(
+        `https://www.reddit.com/r/${sub}/.rss`,
         { 
           headers: { 
-            "User-Agent": "Mozilla/5.0 (compatible; VocabUpdated/2.0)",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "Accept": "application/rss+xml, application/xml",
           } 
         }
       );
 
       if (!res.ok) {
-        // Fallback to Pushshift
-        console.warn(`old.reddit r/${sub} returned ${res.status}, trying Pushshift`);
-        res = await fetch(
-          `https://api.pushshift.io/reddit/search/submission/?subreddit=${sub}&sort=hot&size=15`,
-          { headers: { "User-Agent": "VocabUpdated/2.0" } }
-        );
-        
-        if (!res.ok) {
-          console.warn(`Pushshift also failed: ${res.status}`);
-          continue;
-        }
-        
-        const psData = await res.json();
-        const psPosts = psData.data ?? [];
-        for (const p of psPosts) {
-          allStories.push({
-            title: p.title,
-            snippet: p.selftext ? p.selftext.slice(0, 600) : "",
-            url: p.full_link || `https://reddit.com${p.permalink}`,
-            source: `Reddit r/${sub}`,
-            author: p.author,
-            engagement: p.score ?? 0,
-            created_at: new Date(p.created_utc * 1000).toISOString(),
-          });
-        }
+        console.warn(`RSS r/${sub} returned ${res.status}`);
         continue;
       }
 
-      const data = await res.json();
-      const posts: any[] = data.data?.children ?? [];
-      console.log(`old.reddit r/${sub}: ${posts.length} posts`);
+      const xmlText = await res.text();
+      
+      // Simple XML parsing for RSS items
+      const itemsMatch = xmlText.match(/<item>([\s\S]*?)<\/item>/g);
+      if (!itemsMatch) {
+        console.warn(`RSS r/${sub}: no items found`);
+        continue;
+      }
 
-      for (const p of posts) {
-        const d = p.data;
-        if (d.stickied) continue;
+      console.log(`RSS r/${sub}: ${itemsMatch.length} items`);
+
+      for (const itemXml of itemsMatch.slice(0, 10)) {
+        const titleMatch = itemXml.match(/<title><!\[CDATA\[(.*?)\]\]><\/title>|<title>(.*?)<\/title>/);
+        const linkMatch = itemXml.match(/<link>(.*?)<\/link>/);
+        const authorMatch = itemXml.match(/<author>(.*?)<\/author>/);
+        const dateMatch = itemXml.match(/<pubDate>(.*?)<\/pubDate>/);
+        
+        const title = titleMatch ? (titleMatch[1] || titleMatch[2] || "") : "";
+        const link = linkMatch ? linkMatch[1] : "";
+        const author = authorMatch ? authorMatch[1] : "unknown";
+        
+        if (!title || title === "[deleted]") continue;
+
         allStories.push({
-          title: d.title,
-          snippet: d.selftext ? d.selftext.slice(0, 600) : "",
-          url: d.url,
+          title: title,
+          snippet: "",
+          url: link,
           source: `Reddit r/${sub}`,
-          author: d.author,
-          engagement: d.score ?? 0,
-          created_at: new Date((d.created_utc ?? 0) * 1000).toISOString(),
+          author: author,
+          engagement: 1,
+          created_at: dateMatch ? new Date(dateMatch[1]).toISOString() : new Date().toISOString(),
         });
       }
     } catch (e) {
-      console.error(`Reddit r/${sub} error:`, e);
+      console.error(`RSS r/${sub} error:`, e);
     }
   }
 
@@ -512,19 +484,19 @@ const fetchCategory = async (
   const config = CATEGORIES[key];
   const allSources: RawSource[] = [];
 
-  // Fetch all sources - prioritize Reddit since X needs paid API
-  const [xResults, redditResults, hnResults] = await Promise.all([
+  // Fetch all sources - prioritize Google News (reliable), then HN
+  const [xResults, googleResults, hnResults] = await Promise.all([
     fetchX(config.xQueries).catch(e => { console.error("X error:", e); return []; }),
-    fetchRedditPosts(config.subreddits).catch(e => { console.error("Reddit error:", e); return []; }),
+    fetchGoogleNews(config.hnKeywords).catch(e => { console.error("Google error:", e); return []; }),
     fetchHN(config.hnKeywords).catch(e => { console.error("HN error:", e); return []; }),
   ]);
 
   console.log(
-    `[${key}] Sources: X=${xResults.length}, Reddit=${redditResults.length}, HN=${hnResults.length}`
+    `[${key}] Sources: X=${xResults.length}, Google=${googleResults.length}, HN=${hnResults.length}`
   );
 
-  // Combine all sources - prioritize Reddit, then X, then HN
-  allSources.push(...redditResults, ...xResults, ...hnResults);
+  // Combine all sources - prioritize Google News, then X, then HN
+  allSources.push(...googleResults, ...xResults, ...hnResults);
   
   // If still no sources after trying everything, return empty (don't show placeholders)
   if (allSources.length === 0) {
