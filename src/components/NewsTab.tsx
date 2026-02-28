@@ -17,7 +17,8 @@ interface Story {
 interface CategoryData {
   stories: Story[];
   insights: string[];
-  top_sources: string[];
+  sources: string[];
+  sources_used?: string[];
   fetched_at: string;
 }
 
@@ -192,10 +193,10 @@ export const NewsTab = () => {
       )}
       
       {/* Top Sources */}
-      {catData.top_sources && catData.top_sources.length > 0 && (
+      {(catData.sources || catData.sources_used) && (catData.sources || catData.sources_used).length > 0 && (
         <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-          <span>Top sources:</span>
-          {catData.top_sources.map((source, i) => (
+          <span>Sources:</span>
+          {(catData.sources || catData.sources_used || []).map((source, i) => (
             <span key={i} className="bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-full">{source}</span>
           ))}
         </div>
