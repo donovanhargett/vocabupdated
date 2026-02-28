@@ -37,7 +37,12 @@ interface SourceResult {
 // ── X/Twitter ────────────────────────────────────────────────────────────────
 const fetchX = async (query: string, maxResults: number = 10): Promise<SourceResult> => {
   const xBearerToken = Deno.env.get("X_BEARER_TOKEN");
-  if (!xBearerToken) return { stories: [], source: "X/Twitter", success: false };
+  console.log("X_BEARER_TOKEN present:", !!xBearerToken);
+  
+  if (!xBearerToken) {
+    console.error("X_BEARER_TOKEN is not set!");
+    return { stories: [], source: "X/Twitter", success: false };
+  }
 
   try {
     const apiUrl =
@@ -53,11 +58,13 @@ const fetchX = async (query: string, maxResults: number = 10): Promise<SourceRes
     });
 
     if (!res.ok) {
-      console.log(`X API error: ${res.status}`);
+      const errorText = await res.text();
+      console.log(`X API error ${res.status}:`, errorText);
       return { stories: [], source: "X/Twitter", success: false };
     }
 
     const data = await res.json();
+    console.log(`X API returned ${data.data?.length || 0} tweets for query: ${query}`);
     const tweets: any[] = data.data ?? [];
     const users: any[] = data.includes?.users ?? [];
 
@@ -223,27 +230,28 @@ const fetchCategory = async (
 
   // 1. X/Twitter (primary - most recent)
   const xResult = await fetchX(config.xQuery, 15);
+  console.log(`Category ${category}: X result - ${xResult.stories.length} stories, success: ${xResult.success}`);
   if (xResult.success && xResult.stories.length > 0) {
     allStories.push(...xResult.stories);
     sources.push("X");
   }
 
-  // 2. Reddit (if X failed or for variety)
-  if (allStories.length < 5) {
-    const redditResult = await fetchReddit(config.reddit);
-    if (redditResult.success && redditResult.stories.length > 0) {
-      // Filter by keywords
-      const relevant = redditResult.stories.filter(s =>
-        config.keywords.some(k => s.text.toLowerCase().includes(k))
-      );
-      allStories.push(...relevant.slice(0, 5));
-      if (relevant.length > 0) sources.push("Reddit");
-    }
+  // 2. Reddit (try even if X worked, for variety)
+  const redditResult = await fetchReddit(config.reddit);
+  console.log(`Category ${category}: Reddit result - ${redditResult.stories.length} stories, success: ${redditResult.success}`);
+  if (redditResult.success && redditResult.stories.length > 0) {
+    // Filter by keywords
+    const relevant = redditResult.stories.filter(s =>
+      config.keywords.some(k => s.text.toLowerCase().includes(k))
+    );
+    allStories.push(...relevant.slice(0, 5));
+    if (relevant.length > 0) sources.push("Reddit");
   }
 
   // 3. Hacker News (fallback)
-  if (allStories.length < 5) {
+  if (allStories.length < 3) {
     const hnResult = await fetchHackerNews();
+    console.log(`Category ${category}: HN result - ${hnResult.stories.length} stories, success: ${hnResult.success}`);
     if (hnResult.success && hnResult.stories.length > 0) {
       const relevant = hnResult.stories.filter(s =>
         config.keywords.some(k => s.text.toLowerCase().includes(k))
