@@ -3,6 +3,31 @@ import { Plus, Trash2, RefreshCw, Check, ChevronDown, ChevronUp } from 'lucide-r
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 
+// Tiger Mom quotes of the day
+const TIGER_MOM_QUOTES = [
+  "Success is 1% inspiration, 99% perspiration. Nothing worthwhile comes easy.",
+  "The easiest way to fail is to not try. You miss 100% of the shots you don't take.",
+  "Standards are not about being mean—they're about believing in someone's potential.",
+  "Comfort is the enemy of growth. Push past your limits.",
+  "The pain of discipline is nothing like the pain of disappointment.",
+  "You're not supposed to like me. You're supposed to become better.",
+  "Average is a failure. Push yourself to be exceptional.",
+  "Excuses don't produce results. Work does.",
+  "Your only limit is the effort you're willing to put in.",
+  "Quit complaining. Start working. That's how winners are made.",
+  "I didn't raise you to be comfortable. I raised you to be capable.",
+  "The struggle is where growth happens. Embrace it.",
+  "There's no such thing as 'good enough.' There's only 'better.'",
+  "Every expert was once a beginner. But beginners don't become experts without work.",
+  "Your potential is far greater than your comfort zone.",
+];
+
+const getTigerMomQuote = () => {
+  const today = new Date();
+  const dayOfYear = Math.floor((today.getTime() - new Date(today.getFullYear(), 0, 0).getTime()) / (1000 * 60 * 60 * 24));
+  return TIGER_MOM_QUOTES[dayOfYear % TIGER_MOM_QUOTES.length];
+};
+
 interface DailyContent {
   word: string;
   word_definition: string;
@@ -160,6 +185,13 @@ export const HomeTab = () => {
 
   return (
     <div className="max-w-4xl mx-auto">
+
+      {/* ── Tiger Mom Quote of the Day ──────────────────────────────────────── */}
+      <div className="bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 rounded-xl p-5 mb-8 border border-orange-200 dark:border-orange-800/30">
+        <p className="text-xs font-bold text-orange-600 dark:text-orange-400 uppercase tracking-wider mb-2">🐯 Tiger Mom Wisdom</p>
+        <p className="text-lg font-medium text-gray-800 dark:text-gray-100 italic">"{getTigerMomQuote()}"</p>
+        <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">— Amy Chua</p>
+      </div>
 
       {/* ── Add New Word ──────────────────────────────────────────────────── */}
       <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-6">Add New Word</h2>
