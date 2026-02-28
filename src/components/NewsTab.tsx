@@ -1,34 +1,40 @@
 import { useState, useEffect } from 'react';
-import { Newspaper, ExternalLink, RefreshCw, Heart, Repeat2, TrendingUp, ArrowUpRight } from 'lucide-react';
+import {
+  Newspaper,
+  ExternalLink,
+  RefreshCw,
+  TrendingUp,
+  ArrowUpRight,
+  Lightbulb,
+  Link2,
+  Heart,
+} from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
-interface Story {
-  id: string;
-  author: string;
-  username: string;
-  text: string;
-  images?: string[];
+/* ── Types ─────────────────────────────────────────────────────────────────── */
+
+interface SourceRef {
+  title: string;
   url: string;
-  likes: number;
-  retweets: number;
-  created_at: string;
+  source: string;
+  author: string;
 }
 
-interface CategoryData {
-  stories: Story[];
-  insights: string[];
-  sources: string[];
-  sources_used?: string[];
+interface CategoryBrief {
+  summary: string;
+  highlights: string[];
+  sources: SourceRef[];
   fetched_at: string;
 }
 
 interface DailyNews {
   date: string;
-  openclaw?: CategoryData;
-  biotech?: CategoryData;
-  neurotech?: CategoryData;
-  intelligence?: CategoryData;
-  general?: CategoryData;
+  openclaw?: CategoryBrief;
+  biotech?: CategoryBrief;
+  neurotech?: CategoryBrief;
+  intelligence?: CategoryBrief;
+  general?: CategoryBrief;
+  hrv?: CategoryBrief;
   fetched_at: string;
 }
 
@@ -53,35 +59,57 @@ interface DailyPH {
   products: PHProduct[];
 }
 
+/* ── Constants ─────────────────────────────────────────────────────────────── */
+
 const CATEGORIES = [
-  { key: 'openclaw', name: 'OpenClaw', emoji: '🦞', color: 'border-orange-500' },
-  { key: 'biotech', name: 'Biotech', emoji: '🧬', color: 'border-green-500' },
-  { key: 'neurotech', name: 'Neurotech', emoji: '🧠', color: 'border-purple-500' },
-  { key: 'intelligence', name: 'Intelligence', emoji: '🧠', color: 'border-blue-500' },
-  { key: 'general', name: 'General Tech', emoji: '🔥', color: 'border-red-500' },
+  { key: 'openclaw', name: 'OpenClaw', emoji: '🦞', gradient: 'from-orange-500 to-red-500' },
+  { key: 'biotech', name: 'Biotech', emoji: '🧬', gradient: 'from-green-500 to-emerald-500' },
+  { key: 'neurotech', name: 'Neurotech', emoji: '🧠', gradient: 'from-purple-500 to-violet-500' },
+  { key: 'intelligence', name: 'Intelligence', emoji: '💡', gradient: 'from-blue-500 to-cyan-500' },
+  { key: 'general', name: 'General Tech', emoji: '🔥', gradient: 'from-red-500 to-orange-500' },
+  { key: 'hrv', name: 'HRV', emoji: '❤️‍🔥', gradient: 'from-rose-500 to-pink-500' },
 ];
+
+const SOURCE_BADGE: Record<string, string> = {
+  X: 'bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900',
+  'Hacker News': 'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-400',
+};
+
+const getSourceBadge = (source: string) => {
+  if (source.startsWith('Reddit'))
+    return 'bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400';
+  return SOURCE_BADGE[source] ?? 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400';
+};
 
 const formatTime = (dateStr: string) =>
   new Date(dateStr).toLocaleString('en-US', {
-    month: 'short', day: 'numeric',
-    hour: 'numeric', minute: '2-digit', hour12: true,
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
   });
 
 const VERDICT_STYLE: Record<string, string> = {
-  'strong signal': 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400',
-  'interesting':   'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400',
-  'too early':     'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400',
+  'strong signal':
+    'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400',
+  interesting:
+    'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400',
+  'too early':
+    'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400',
 };
 
+/* ── Component ─────────────────────────────────────────────────────────────── */
+
 export const NewsTab = () => {
-  const [news, setNews]             = useState<DailyNews | null>(null);
+  const [news, setNews] = useState<DailyNews | null>(null);
   const [newsLoading, setNewsLoading] = useState(true);
-  const [newsError, setNewsError]     = useState<string | null>(null);
+  const [newsError, setNewsError] = useState<string | null>(null);
   const [activeCategory, setActiveCategory] = useState<string>('all');
 
-  const [ph, setPh]               = useState<DailyPH | null>(null);
-  const [phLoading, setPhLoading]   = useState(true);
-  const [phError, setPhError]       = useState<string | null>(null);
+  const [ph, setPh] = useState<DailyPH | null>(null);
+  const [phLoading, setPhLoading] = useState(true);
+  const [phError, setPhError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchNews();
@@ -122,119 +150,131 @@ export const NewsTab = () => {
   };
 
   const today = new Date().toLocaleDateString('en-US', {
-    weekday: 'long', month: 'long', day: 'numeric',
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
   });
 
-  const renderStory = (story: Story, index: number) => (
-    <div
-      key={story.id}
-      className="bg-white dark:bg-gray-800 rounded-lg shadow px-4 py-3 border-l-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-      style={{ borderLeftColor: CATEGORIES.find(c => news?.[c.key as keyof DailyNews]?.stories.some(s => s.id === story.id)) ? undefined : undefined }}
-    >
-      <div className="flex items-center justify-between mb-1.5">
-        <div className="flex items-center gap-1.5 min-w-0">
-          <span className="text-xs font-bold text-gray-400 tabular-nums shrink-0">
-            {String(index + 1).padStart(2, '0')}
-          </span>
-          <span className="font-semibold text-gray-900 dark:text-white text-sm truncate">
-            {story.author}
-          </span>
-          <span className="text-gray-400 dark:text-gray-500 text-xs shrink-0">
-            @{story.username}
-          </span>
-        </div>
-        <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0 ml-2">
-          {formatTime(story.created_at)}
-        </span>
-      </div>
+  /* ── Brief Card ──────────────────────────────────────────────────────────── */
 
-      <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed mb-2 whitespace-pre-wrap">
-        {story.text}
-      </p>
-
-      {story.images && story.images.length > 0 && (
-        <div className={`mb-2 grid gap-1 rounded-xl overflow-hidden ${story.images.length > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}>
-          {story.images.map((src, idx) => (
-            <img key={idx} src={src} alt="" loading="lazy"
-              className="w-full object-cover max-h-72 rounded-xl" />
-          ))}
+  const renderBrief = (
+    category: (typeof CATEGORIES)[0],
+    brief: CategoryBrief
+  ) => (
+    <div key={category.key} className="space-y-4">
+      {/* Summary */}
+      {brief.summary && (
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5 border border-gray-100 dark:border-gray-700">
+          <p className="text-gray-800 dark:text-gray-200 text-sm leading-relaxed">
+            {brief.summary}
+          </p>
         </div>
       )}
 
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500">
-          <span className="flex items-center gap-1">
-            <Heart size={11} />{(story.likes ?? 0).toLocaleString()}
-          </span>
-          <span className="flex items-center gap-1">
-            <Repeat2 size={11} />{(story.retweets ?? 0).toLocaleString()}
-          </span>
-        </div>
-        <a href={story.url} target="_blank" rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline">
-          View on X <ExternalLink size={10} />
-        </a>
-      </div>
-    </div>
-  );
-
-  const renderCategory = (category: typeof CATEGORIES[0], catData: CategoryData) => (
-    <div key={category.key} className="space-y-4">
-      {/* Insights */}
-      {catData.insights && catData.insights.length > 0 && (
-        <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 rounded-lg p-4 border border-amber-200 dark:border-amber-800">
-          <h4 className="text-xs font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wide mb-2">🔑 Key Insights</h4>
-          <ul className="space-y-1">
-            {catData.insights.slice(0, 3).map((insight, i) => (
-              <li key={i} className="text-sm text-gray-700 dark:text-gray-300">{insight}</li>
+      {/* Highlights */}
+      {brief.highlights && brief.highlights.length > 0 && (
+        <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 rounded-xl p-5 border border-amber-200/60 dark:border-amber-800/40">
+          <h4 className="text-xs font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wide mb-3 flex items-center gap-1.5">
+            <Lightbulb size={13} /> Key Highlights
+          </h4>
+          <ul className="space-y-2">
+            {brief.highlights.map((h, i) => (
+              <li
+                key={i}
+                className="text-sm text-gray-700 dark:text-gray-300 flex items-start gap-2"
+              >
+                <span className="text-amber-500 mt-0.5 shrink-0">▸</span>
+                <span>{h}</span>
+              </li>
             ))}
           </ul>
         </div>
       )}
-      
-      {/* Top Sources */}
-      {(catData.sources || catData.sources_used) && (catData.sources || catData.sources_used).length > 0 && (
-        <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-          <span>Sources:</span>
-          {(catData.sources || catData.sources_used || []).map((source, i) => (
-            <span key={i} className="bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-full">{source}</span>
-          ))}
+
+      {/* Sources */}
+      {brief.sources && brief.sources.length > 0 && (
+        <div className="space-y-2">
+          <h4 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide flex items-center gap-1.5">
+            <Link2 size={12} /> Sources ({brief.sources.length})
+          </h4>
+          <div className="grid gap-2">
+            {brief.sources.map((src, i) => (
+              <a
+                key={i}
+                href={src.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-3 bg-white dark:bg-gray-800 rounded-lg px-4 py-2.5 border border-gray-100 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-500 hover:shadow-sm transition-all group"
+              >
+                <span
+                  className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${getSourceBadge(src.source)}`}
+                >
+                  {src.source}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-gray-800 dark:text-gray-200 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                    {src.title}
+                  </p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500 truncate">
+                    {src.author}
+                  </p>
+                </div>
+                <ExternalLink
+                  size={12}
+                  className="text-gray-300 dark:text-gray-600 group-hover:text-blue-500 transition-colors shrink-0"
+                />
+              </a>
+            ))}
+          </div>
         </div>
       )}
-      
-      {/* Stories */}
-      {catData.stories.slice(0, 5).map((story, i) => (
-        <div key={story.id} className={`border-l-4 ${category.color}`}>
-          {renderStory(story, i)}
+
+      {/* No data fallback */}
+      {!brief.summary && (!brief.highlights || brief.highlights.length === 0) && (
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-10 text-center">
+          <p className="text-gray-400 dark:text-gray-500 text-sm">
+            No {category.name} news collected yet today.
+          </p>
         </div>
-      ))}
+      )}
     </div>
   );
 
+  /* ── Main Render ─────────────────────────────────────────────────────────── */
+
   return (
     <div className="max-w-4xl mx-auto space-y-10">
-
-      {/* ── Product Hunt Today ─────────────────────────────────────────────── */}
+      {/* ── Product Hunt Today ──────────────────────────────────────────────── */}
       <div>
         <div className="flex items-start justify-between mb-6">
           <div>
-            <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-1">Product Hunt Today</h2>
-            <p className="text-gray-500 dark:text-gray-400 text-sm">Top 3 launches · VC signal</p>
+            <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-1">
+              Product Hunt Today
+            </h2>
+            <p className="text-gray-500 dark:text-gray-400 text-sm">
+              Top 3 launches · VC signal
+            </p>
           </div>
           <button
             onClick={fetchPH}
             disabled={phLoading}
             className="flex items-center gap-2 px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
           >
-            <RefreshCw size={15} className={phLoading ? 'animate-spin' : ''} />
+            <RefreshCw
+              size={15}
+              className={phLoading ? 'animate-spin' : ''}
+            />
             Refresh
           </button>
         </div>
 
         {phLoading ? (
           <div className="space-y-4">
-            {[0, 1, 2].map(i => (
-              <div key={i} className="bg-white dark:bg-gray-800 rounded-lg shadow p-5 animate-pulse">
+            {[0, 1, 2].map((i) => (
+              <div
+                key={i}
+                className="bg-white dark:bg-gray-800 rounded-lg shadow p-5 animate-pulse"
+              >
                 <div className="flex gap-3 mb-3">
                   <div className="w-12 h-12 bg-gray-200 dark:bg-gray-700 rounded-xl shrink-0" />
                   <div className="flex-1">
@@ -254,20 +294,33 @@ export const NewsTab = () => {
           </div>
         ) : phError ? (
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-10 text-center">
-            <TrendingUp size={40} className="text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+            <TrendingUp
+              size={40}
+              className="text-gray-300 dark:text-gray-600 mx-auto mb-3"
+            />
             <p className="text-gray-500 dark:text-gray-400 mb-2">{phError}</p>
-            <button onClick={fetchPH} className="text-sm text-blue-600 dark:text-blue-400 hover:underline">Try again</button>
+            <button
+              onClick={fetchPH}
+              className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+            >
+              Try again
+            </button>
           </div>
         ) : ph?.products?.length ? (
           <div className="space-y-4">
             {ph.products.map((product, i) => (
-              <div key={product.id} className="bg-white dark:bg-gray-800 rounded-lg shadow p-5 border-l-4 border-orange-500">
-
-                {/* Header */}
+              <div
+                key={product.id}
+                className="bg-white dark:bg-gray-800 rounded-lg shadow p-5 border-l-4 border-orange-500"
+              >
                 <div className="flex items-start gap-3 mb-3">
                   {product.thumbnail ? (
-                    <img src={product.thumbnail} alt={product.name} loading="lazy"
-                      className="w-12 h-12 rounded-xl object-cover shrink-0 border border-gray-100 dark:border-gray-700" />
+                    <img
+                      src={product.thumbnail}
+                      alt={product.name}
+                      loading="lazy"
+                      className="w-12 h-12 rounded-xl object-cover shrink-0 border border-gray-100 dark:border-gray-700"
+                    />
                   ) : (
                     <div className="w-12 h-12 rounded-xl bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center shrink-0">
                       <TrendingUp size={20} className="text-orange-500" />
@@ -278,27 +331,40 @@ export const NewsTab = () => {
                       <span className="text-xs font-bold text-orange-500 tabular-nums">
                         {String(i + 1).padStart(2, '0')}
                       </span>
-                      <h3 className="font-bold text-gray-900 dark:text-white">{product.name}</h3>
+                      <h3 className="font-bold text-gray-900 dark:text-white">
+                        {product.name}
+                      </h3>
                       {product.one_liner && (
-                        <span className="text-xs text-gray-400 dark:text-gray-500 font-mono">— {product.one_liner}</span>
+                        <span className="text-xs text-gray-400 dark:text-gray-500 font-mono">
+                          — {product.one_liner}
+                        </span>
                       )}
                     </div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{product.tagline}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                      {product.tagline}
+                    </p>
                   </div>
                   <div className="flex flex-col items-end gap-1.5 shrink-0">
-                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full capitalize ${VERDICT_STYLE[product.verdict] || VERDICT_STYLE['interesting']}`}>
+                    <span
+                      className={`text-xs font-semibold px-2 py-0.5 rounded-full capitalize ${
+                        VERDICT_STYLE[product.verdict] ??
+                        VERDICT_STYLE['interesting']
+                      }`}
+                    >
                       {product.verdict}
                     </span>
-                    <span className="text-xs text-gray-400 dark:text-gray-500">▲ {product.votes.toLocaleString()}</span>
+                    <span className="text-xs text-gray-400 dark:text-gray-500">
+                      ▲ {product.votes.toLocaleString()}
+                    </span>
                   </div>
                 </div>
 
-                {/* What it does */}
                 {product.what_it_does && (
-                  <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">{product.what_it_does}</p>
+                  <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">
+                    {product.what_it_does}
+                  </p>
                 )}
 
-                {/* Data chips */}
                 <div className="flex flex-wrap gap-2 mb-3">
                   {product.ecosystem && (
                     <span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 px-2 py-0.5 rounded-full">
@@ -310,22 +376,31 @@ export const NewsTab = () => {
                       $ {product.revenue_model}
                     </span>
                   )}
-                  {product.comparable?.map(c => (
-                    <span key={c} className="text-xs bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-full">
+                  {product.comparable?.map((c) => (
+                    <span
+                      key={c}
+                      className="text-xs bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-full"
+                    >
                       ~ {c}
                     </span>
                   ))}
                 </div>
 
-                {/* Key risk */}
                 {product.key_risk && (
                   <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-                    <span className="font-semibold text-gray-600 dark:text-gray-300">Risk: </span>{product.key_risk}
+                    <span className="font-semibold text-gray-600 dark:text-gray-300">
+                      Risk:{' '}
+                    </span>
+                    {product.key_risk}
                   </p>
                 )}
 
-                <a href={product.url} target="_blank" rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-xs text-orange-600 dark:text-orange-400 hover:underline">
+                <a
+                  href={product.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs text-orange-600 dark:text-orange-400 hover:underline"
+                >
                   View on Product Hunt <ArrowUpRight size={11} />
                 </a>
               </div>
@@ -333,25 +408,37 @@ export const NewsTab = () => {
           </div>
         ) : (
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-16 text-center">
-            <TrendingUp size={40} className="text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-            <p className="text-gray-500 dark:text-gray-400">No products found for today.</p>
+            <TrendingUp
+              size={40}
+              className="text-gray-300 dark:text-gray-600 mx-auto mb-3"
+            />
+            <p className="text-gray-500 dark:text-gray-400">
+              No products found for today.
+            </p>
           </div>
         )}
       </div>
 
-      {/* ── Morning Brief ─────────────────────────────────────────────────── */}
+      {/* ── Daily Brief ────────────────────────────────────────────────────── */}
       <div>
         <div className="flex items-start justify-between mb-6">
           <div>
-            <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-1">Morning Brief</h2>
-            <p className="text-gray-500 dark:text-gray-400 text-sm">{today} · live from X/Twitter</p>
+            <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-1">
+              Daily Brief
+            </h2>
+            <p className="text-gray-500 dark:text-gray-400 text-sm">
+              {today} · synthesized from X, Reddit &amp; Hacker News
+            </p>
           </div>
           <button
             onClick={fetchNews}
             disabled={newsLoading}
             className="flex items-center gap-2 px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
           >
-            <RefreshCw size={15} className={newsLoading ? 'animate-spin' : ''} />
+            <RefreshCw
+              size={15}
+              className={newsLoading ? 'animate-spin' : ''}
+            />
             Refresh
           </button>
         </div>
@@ -368,7 +455,7 @@ export const NewsTab = () => {
           >
             All
           </button>
-          {CATEGORIES.map(cat => (
+          {CATEGORIES.map((cat) => (
             <button
               key={cat.key}
               onClick={() => setActiveCategory(cat.key)}
@@ -383,69 +470,98 @@ export const NewsTab = () => {
           ))}
         </div>
 
+        {/* Content */}
         {newsLoading ? (
-          <div className="space-y-2">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="bg-white dark:bg-gray-800 rounded-lg shadow px-4 py-3 animate-pulse">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-24" />
-                  <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-16" />
-                </div>
-                <div className="space-y-1.5">
-                  <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-full" />
-                  <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-4/5" />
-                </div>
+          <div className="space-y-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div
+                key={i}
+                className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5 animate-pulse"
+              >
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-3" />
+                <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-full mb-2" />
+                <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-5/6 mb-2" />
+                <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-2/3" />
               </div>
             ))}
           </div>
         ) : newsError ? (
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-16 text-center">
-            <Newspaper size={40} className="text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-            <p className="text-gray-500 dark:text-gray-400 mb-3">{newsError}</p>
-            <button onClick={fetchNews} className="text-sm text-blue-600 dark:text-blue-400 hover:underline">Try again</button>
+            <Newspaper
+              size={40}
+              className="text-gray-300 dark:text-gray-600 mx-auto mb-3"
+            />
+            <p className="text-gray-500 dark:text-gray-400 mb-3">
+              {newsError}
+            </p>
+            <button
+              onClick={fetchNews}
+              className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+            >
+              Try again
+            </button>
           </div>
         ) : (
           <>
             {activeCategory === 'all' ? (
-              // Show all categories stacked
-              <div className="space-y-8">
-                {CATEGORIES.map(cat => {
-                  const catData = news?.[cat.key as keyof DailyNews] as CategoryData | undefined;
-                  if (!catData?.stories?.length) return null;
+              <div className="space-y-10">
+                {CATEGORIES.map((cat) => {
+                  const brief = news?.[
+                    cat.key as keyof DailyNews
+                  ] as CategoryBrief | undefined;
+                  if (
+                    !brief ||
+                    (!brief.summary &&
+                      (!brief.highlights || brief.highlights.length === 0))
+                  )
+                    return null;
                   return (
                     <div key={cat.key}>
-                      <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
-                        <span>{cat.emoji}</span> {cat.name}
-                        <span className="text-xs font-normal text-gray-500">({catData.stories.length} posts)</span>
+                      <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                        <span className="text-xl">{cat.emoji}</span>{' '}
+                        {cat.name}
                       </h3>
-                      {renderCategory(cat, catData)}
+                      {renderBrief(cat, brief)}
                     </div>
                   );
                 })}
               </div>
             ) : (
-              // Show single category
-              CATEGORIES.filter(c => c.key === activeCategory).map(cat => {
-                const catData = news?.[cat.key as keyof DailyNews] as CategoryData | undefined;
-                if (!catData?.stories?.length) {
+              CATEGORIES.filter((c) => c.key === activeCategory).map((cat) => {
+                const brief = news?.[
+                  cat.key as keyof DailyNews
+                ] as CategoryBrief | undefined;
+                if (!brief) {
                   return (
-                    <div key={cat.key} className="bg-white dark:bg-gray-800 rounded-lg shadow p-16 text-center">
-                      <p className="text-gray-500 dark:text-gray-400">No posts found for {cat.name}.</p>
+                    <div
+                      key={cat.key}
+                      className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-16 text-center"
+                    >
+                      <p className="text-gray-500 dark:text-gray-400">
+                        No brief available for {cat.name} today.
+                      </p>
                     </div>
                   );
                 }
-                return renderCategory(cat, catData);
+                return (
+                  <div key={cat.key}>
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                      <span className="text-xl">{cat.emoji}</span> {cat.name}
+                    </h3>
+                    {renderBrief(cat, brief)}
+                  </div>
+                );
               })
             )}
             {news?.fetched_at && (
-              <p className="text-center text-xs text-gray-400 dark:text-gray-600 pt-4">
-                Last updated {formatTime(news.fetched_at)} · Sources: X/Twitter
+              <p className="text-center text-xs text-gray-400 dark:text-gray-600 pt-6">
+                Last updated {formatTime(news.fetched_at)} · Sources: X ·
+                Reddit · Hacker News
               </p>
             )}
           </>
         )}
       </div>
-
     </div>
   );
 };
