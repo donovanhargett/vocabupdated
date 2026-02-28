@@ -14,9 +14,20 @@ interface Story {
   created_at: string;
 }
 
+interface CategoryData {
+  stories: Story[];
+  insights: string[];
+  top_sources: string[];
+  fetched_at: string;
+}
+
 interface DailyNews {
   date: string;
-  stories: Story[];
+  openclaw?: CategoryData;
+  biotech?: CategoryData;
+  neurotech?: CategoryData;
+  intelligence?: CategoryData;
+  general?: CategoryData;
   fetched_at: string;
 }
 
@@ -41,6 +52,14 @@ interface DailyPH {
   products: PHProduct[];
 }
 
+const CATEGORIES = [
+  { key: 'openclaw', name: 'OpenClaw', emoji: '🦞', color: 'border-orange-500' },
+  { key: 'biotech', name: 'Biotech', emoji: '🧬', color: 'border-green-500' },
+  { key: 'neurotech', name: 'Neurotech', emoji: '🧠', color: 'border-purple-500' },
+  { key: 'intelligence', name: 'Intelligence', emoji: '🧠', color: 'border-blue-500' },
+  { key: 'general', name: 'General Tech', emoji: '🔥', color: 'border-red-500' },
+];
+
 const formatTime = (dateStr: string) =>
   new Date(dateStr).toLocaleString('en-US', {
     month: 'short', day: 'numeric',
@@ -57,6 +76,7 @@ export const NewsTab = () => {
   const [news, setNews]             = useState<DailyNews | null>(null);
   const [newsLoading, setNewsLoading] = useState(true);
   const [newsError, setNewsError]     = useState<string | null>(null);
+  const [activeCategory, setActiveCategory] = useState<string>('all');
 
   const [ph, setPh]               = useState<DailyPH | null>(null);
   const [phLoading, setPhLoading]   = useState(true);
@@ -70,7 +90,6 @@ export const NewsTab = () => {
   const invokeWithError = async (fn: string, body: object) => {
     const { data, error } = await supabase.functions.invoke(fn, { body });
     if (error) {
-      // Extract the actual message from the response body if available
       const body = await (error as any).context?.json?.().catch(() => null);
       throw new Error(body?.error || error.message || `Failed to call ${fn}`);
     }
@@ -104,6 +123,92 @@ export const NewsTab = () => {
   const today = new Date().toLocaleDateString('en-US', {
     weekday: 'long', month: 'long', day: 'numeric',
   });
+
+  const renderStory = (story: Story, index: number) => (
+    <div
+      key={story.id}
+      className="bg-white dark:bg-gray-800 rounded-lg shadow px-4 py-3 border-l-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+      style={{ borderLeftColor: CATEGORIES.find(c => news?.[c.key as keyof DailyNews]?.stories.some(s => s.id === story.id)) ? undefined : undefined }}
+    >
+      <div className="flex items-center justify-between mb-1.5">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className="text-xs font-bold text-gray-400 tabular-nums shrink-0">
+            {String(index + 1).padStart(2, '0')}
+          </span>
+          <span className="font-semibold text-gray-900 dark:text-white text-sm truncate">
+            {story.author}
+          </span>
+          <span className="text-gray-400 dark:text-gray-500 text-xs shrink-0">
+            @{story.username}
+          </span>
+        </div>
+        <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0 ml-2">
+          {formatTime(story.created_at)}
+        </span>
+      </div>
+
+      <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed mb-2 whitespace-pre-wrap">
+        {story.text}
+      </p>
+
+      {story.images && story.images.length > 0 && (
+        <div className={`mb-2 grid gap-1 rounded-xl overflow-hidden ${story.images.length > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}>
+          {story.images.map((src, idx) => (
+            <img key={idx} src={src} alt="" loading="lazy"
+              className="w-full object-cover max-h-72 rounded-xl" />
+          ))}
+        </div>
+      )}
+
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500">
+          <span className="flex items-center gap-1">
+            <Heart size={11} />{(story.likes ?? 0).toLocaleString()}
+          </span>
+          <span className="flex items-center gap-1">
+            <Repeat2 size={11} />{(story.retweets ?? 0).toLocaleString()}
+          </span>
+        </div>
+        <a href={story.url} target="_blank" rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline">
+          View on X <ExternalLink size={10} />
+        </a>
+      </div>
+    </div>
+  );
+
+  const renderCategory = (category: typeof CATEGORIES[0], catData: CategoryData) => (
+    <div key={category.key} className="space-y-4">
+      {/* Insights */}
+      {catData.insights && catData.insights.length > 0 && (
+        <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 rounded-lg p-4 border border-amber-200 dark:border-amber-800">
+          <h4 className="text-xs font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wide mb-2">🔑 Key Insights</h4>
+          <ul className="space-y-1">
+            {catData.insights.slice(0, 3).map((insight, i) => (
+              <li key={i} className="text-sm text-gray-700 dark:text-gray-300">{insight}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      
+      {/* Top Sources */}
+      {catData.top_sources && catData.top_sources.length > 0 && (
+        <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+          <span>Top sources:</span>
+          {catData.top_sources.map((source, i) => (
+            <span key={i} className="bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-full">{source}</span>
+          ))}
+        </div>
+      )}
+      
+      {/* Stories */}
+      {catData.stories.slice(0, 5).map((story, i) => (
+        <div key={story.id} className={`border-l-4 ${category.color}`}>
+          {renderStory(story, i)}
+        </div>
+      ))}
+    </div>
+  );
 
   return (
     <div className="max-w-4xl mx-auto space-y-10">
@@ -238,7 +343,7 @@ export const NewsTab = () => {
         <div className="flex items-start justify-between mb-6">
           <div>
             <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-1">Morning Brief</h2>
-            <p className="text-gray-500 dark:text-gray-400 text-sm">{today} · top posts from the last 48 h</p>
+            <p className="text-gray-500 dark:text-gray-400 text-sm">{today} · live from X/Twitter</p>
           </div>
           <button
             onClick={fetchNews}
@@ -248,6 +353,33 @@ export const NewsTab = () => {
             <RefreshCw size={15} className={newsLoading ? 'animate-spin' : ''} />
             Refresh
           </button>
+        </div>
+
+        {/* Category Tabs */}
+        <div className="flex flex-wrap gap-2 mb-6">
+          <button
+            onClick={() => setActiveCategory('all')}
+            className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+              activeCategory === 'all'
+                ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900'
+                : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+            }`}
+          >
+            All
+          </button>
+          {CATEGORIES.map(cat => (
+            <button
+              key={cat.key}
+              onClick={() => setActiveCategory(cat.key)}
+              className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                activeCategory === cat.key
+                  ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900'
+                  : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+              }`}
+            >
+              {cat.emoji} {cat.name}
+            </button>
+          ))}
         </div>
 
         {newsLoading ? (
@@ -271,72 +403,45 @@ export const NewsTab = () => {
             <p className="text-gray-500 dark:text-gray-400 mb-3">{newsError}</p>
             <button onClick={fetchNews} className="text-sm text-blue-600 dark:text-blue-400 hover:underline">Try again</button>
           </div>
-        ) : news?.stories?.length ? (
+        ) : (
           <>
-            <div className="space-y-2">
-              {news.stories.map((story, i) => (
-                <div
-                  key={story.id}
-                  className="bg-white dark:bg-gray-800 rounded-lg shadow px-4 py-3 border-l-4 border-blue-500 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-                >
-                  <div className="flex items-center justify-between mb-1.5">
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <span className="text-xs font-bold text-blue-500 tabular-nums shrink-0">
-                        {String(i + 1).padStart(2, '0')}
-                      </span>
-                      <span className="font-semibold text-gray-900 dark:text-white text-sm truncate">
-                        {story.author}
-                      </span>
-                      <span className="text-gray-400 dark:text-gray-500 text-xs shrink-0">
-                        @{story.username}
-                      </span>
+            {activeCategory === 'all' ? (
+              // Show all categories stacked
+              <div className="space-y-8">
+                {CATEGORIES.map(cat => {
+                  const catData = news?.[cat.key as keyof DailyNews] as CategoryData | undefined;
+                  if (!catData?.stories?.length) return null;
+                  return (
+                    <div key={cat.key}>
+                      <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                        <span>{cat.emoji}</span> {cat.name}
+                        <span className="text-xs font-normal text-gray-500">({catData.stories.length} posts)</span>
+                      </h3>
+                      {renderCategory(cat, catData)}
                     </div>
-                    <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0 ml-2">
-                      {formatTime(story.created_at)}
-                    </span>
-                  </div>
-
-                  <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed mb-2 whitespace-pre-wrap">
-                    {story.text}
-                  </p>
-
-                  {story.images && story.images.length > 0 && (
-                    <div className={`mb-2 grid gap-1 rounded-xl overflow-hidden ${story.images.length > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}>
-                      {story.images.map((src, idx) => (
-                        <img key={idx} src={src} alt="" loading="lazy"
-                          className="w-full object-cover max-h-72 rounded-xl" />
-                      ))}
+                  );
+                })}
+              </div>
+            ) : (
+              // Show single category
+              CATEGORIES.filter(c => c.key === activeCategory).map(cat => {
+                const catData = news?.[cat.key as keyof DailyNews] as CategoryData | undefined;
+                if (!catData?.stories?.length) {
+                  return (
+                    <div key={cat.key} className="bg-white dark:bg-gray-800 rounded-lg shadow p-16 text-center">
+                      <p className="text-gray-500 dark:text-gray-400">No posts found for {cat.name}.</p>
                     </div>
-                  )}
-
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500">
-                      <span className="flex items-center gap-1">
-                        <Heart size={11} />{(story.likes ?? 0).toLocaleString()}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Repeat2 size={11} />{(story.retweets ?? 0).toLocaleString()}
-                      </span>
-                    </div>
-                    <a href={story.url} target="_blank" rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline">
-                      View on X <ExternalLink size={10} />
-                    </a>
-                  </div>
-                </div>
-              ))}
-            </div>
-            {news.fetched_at && (
+                  );
+                }
+                return renderCategory(cat, catData);
+              })
+            )}
+            {news?.fetched_at && (
               <p className="text-center text-xs text-gray-400 dark:text-gray-600 pt-4">
-                Fetched {formatTime(news.fetched_at)} · Refreshes once daily
+                Last updated {formatTime(news.fetched_at)} · Sources: X/Twitter
               </p>
             )}
           </>
-        ) : (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-16 text-center">
-            <Newspaper size={40} className="text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-            <p className="text-gray-500 dark:text-gray-400">No posts found for the last 48 hours.</p>
-          </div>
         )}
       </div>
 

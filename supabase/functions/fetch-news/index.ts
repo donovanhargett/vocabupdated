@@ -9,50 +9,191 @@ const corsHeaders = {
 
 const getDateString = () => new Date().toISOString().split("T")[0];
 
-// ── Followed accounts (~376 chars — under free-tier 512 char limit) ───────────
-const ACCOUNTS = [
-  "elonmusk", "chamath", "Jason", "DavidSacks", "pmarca", "a16z", "Friedberg", "eladgil",
-  "sama", "karpathy", "lexfridman", "ylecun",
-  "neuralink", "cb_doge", "NeuroTechX", "XFreeze", "tetsuoai",
-  "alliekmiller", "rowancheung", "AndrewYNg",
+// ── Category Search Queries ────────────────────────────────────────────────
+const CATEGORIES = {
+  openclaw: {
+    name: "OpenClaw",
+    emoji: "🦞",
+    query: "openclaw OR @openclaw -is:retweet lang:en",
+    maxResults: 15,
+  },
+  biotech: {
+    name: "Biotech",
+    emoji: "🧬",
+    query: "biotech OR biotechnology OR CRISPR OR drug discovery OR clinical trial -is:retweet lang:en",
+    maxResults: 10,
+  },
+  neurotech: {
+    name: "Neurotech",
+    emoji: "🧠",
+    query: "neurotech OR brain interface OR BCI OR neuralink OR neuroscience -is:retweet lang:en",
+    maxResults: 10,
+  },
+  intelligence: {
+    name: "Intelligence",
+    emoji: "🧠",
+    query: '"g factor" OR "fluid intelligence" OR "cognitive enhancement" OR IQ research -is:retweet lang:en',
+    maxResults: 10,
+  },
+  general: {
+    name: "General Tech",
+    emoji: "🔥",
+    query: '"AI agent" OR "autonomous AI" OR "agentic" OR "open source AI" OR "new LLM" OR "AI breakthrough" -is:retweet lang:en',
+    maxResults: 10,
+  },
+};
+
+// Trend/Insight patterns to detect
+const TREND_PATTERNS = [
+  { pattern: /cost|optimization|reduce|cheaper|token/i, label: "💰 Cost Optimization" },
+  { pattern: /template|repo|github| fork/i, label: "📦 Templates/Repos" },
+  { pattern: /security|hack|vulnerability|escape| breach/i, label: "🔒 Security" },
+  { pattern: /new feature|update|release|launch/i, label: "🚀 New Features" },
+  { pattern: /tutorial|guide|how to|learn/i, label: "📚 Tutorials" },
+  { pattern: /enterprise|production|secure|scale/i, label: "🏢 Enterprise" },
+  { pattern: /macos|mac|windows|linux|desktop/i, label: "🖥️ Cross-Platform" },
+  { pattern: /chinese|中文|小龙虾/i, label: "🌏 Chinese Community" },
 ];
 
-const ACCOUNT_QUERY =
-  `(${ACCOUNTS.map((a) => `from:${a}`).join(" OR ")}) -is:retweet -is:reply lang:en`;
-
-// ── Content filter ────────────────────────────────────────────────────────────
-// A tweet must contain at least one tech signal term AND must not contain
-// any cynical/negative markers to pass through.
-
-const TECH_SIGNALS = [
-  "ai", "startup", "launch", "launches", "funding", "raise", "raised", "round",
-  "model", "bci", "neural", "neuro", "compute", "llm", "research", "agent",
-  "breakthrough", "invest", "venture", "built", "ship", "shipped", "product",
-  "technology", "open source", "demo", "release", "announced", "acquire",
-  "neurotech", "robot", "robotics", "automation", "chip", "semiconductor",
-  "quantum", "biotech", "implant", "billion", "trillion", "series a", "series b",
-  "partnership", "infrastructure", "data center", "inference", "training",
-  "multimodal", "foundation model", "open ai", "anthropic", "deepmind", "nvidia",
-  "hardware", "deploy", "api", "cloud", "agi", "reasoning", "benchmark",
-];
-
-const BLOCK_SIGNALS = [
-  "idiot", "moron", "stupid", "pathetic", "terrible", "awful",
-  "liar", "lie", "corrupt", "fraud", "scam", "criminal", "garbage", "trash",
-  "embarrassing", "shameful", "ridiculous", "clown", "hoax", "disgusting",
-  "propaganda", "evil", "loser", "failure", "incompetent", "disaster",
-  "hypocrite", "coward", "woke", "racist", "fascist", "communist",
-];
-
-const isTechContent = (text: string): boolean => {
-  const lower = text.toLowerCase();
-  for (const bad of BLOCK_SIGNALS) {
-    if (lower.includes(bad)) return false;
+// Extract key insights from tweets
+const extractInsights = (stories: Story[]): string[] => {
+  const insights: string[] = [];
+  
+  for (const story of stories) {
+    const text = story.text.toLowerCase();
+    
+    // Check for specific patterns
+    for (const { pattern, label } of TREND_PATTERNS) {
+      if (pattern.test(story.text) && !insights.includes(label)) {
+        insights.push(`${label}: ${story.text.slice(0, 100)}...`);
+      }
+    }
+    
+    // Specific OpenClaw insights
+    if (text.includes("openclaw")) {
+      if (text.includes("cost") || text.includes("token") || text.includes("cheap")) {
+        insights.push("💰 Cost reduction tips trending");
+      }
+      if (text.includes("template") || text.includes("case") || text.includes("example")) {
+        insights.push("📦 New use case templates shared");
+      }
+      if (text.includes("security") || text.includes("hack") || text.includes("vuln")) {
+        insights.push("🔒 Security discussion/hardening");
+      }
+      if (text.includes("chinese") || text.includes("中文") || text.includes("小龙虾")) {
+        insights.push("🌏 Chinese community active");
+      }
+    }
   }
-  for (const term of TECH_SIGNALS) {
-    if (lower.includes(term)) return true;
+  
+  return [...new Set(insights)].slice(0, 5);
+};
+
+interface Story {
+  id: string;
+  author: string;
+  username: string;
+  text: string;
+  images?: string[];
+  url: string;
+  likes: number;
+  retweets: number;
+  created_at: string;
+}
+
+interface CategoryStories {
+  stories: Story[];
+  insights: string[];
+  top_sources: string[];
+  fetched_at: string;
+}
+
+const fetchCategoryTweets = async (category: keyof typeof CATEGORIES, xBearerToken: string): Promise<CategoryStories> => {
+  const cat = CATEGORIES[category];
+  const apiUrl =
+    `https://api.twitter.com/2/tweets/search/recent` +
+    `?query=${encodeURIComponent(cat.query)}` +
+    `&max_results=${cat.maxResults}` +
+    `&tweet.fields=created_at,author_id,public_metrics,text,attachments` +
+    `&expansions=author_id,attachments.media_keys` +
+    `&user.fields=name,username` +
+    `&media.fields=url,preview_image_url,type`;
+
+  const res = await fetch(apiUrl, {
+    headers: { Authorization: `Bearer ${xBearerToken}` },
+  });
+
+  if (!res.ok) {
+    console.error(`X API error for ${category}: ${res.status}`);
+    return { stories: [], insights: [], top_sources: [], fetched_at: new Date().toISOString() };
   }
-  return false;
+
+  const data = await res.json();
+  const tweets: any[] = data.data ?? [];
+  const users: any[] = data.includes?.users ?? [];
+  const mediaItems: any[] = data.includes?.media ?? [];
+
+  const userMap = new Map<string, { name: string; username: string }>(
+    users.map((u: any) => [u.id, { name: u.name, username: u.username }])
+  );
+
+  // Extract top sources (most engaged authors)
+  const sourceCounts = new Map<string, number>();
+  users.forEach((u: any) => sourceCounts.set(u.username, 0));
+  tweets.forEach((t: any) => {
+    const count = sourceCounts.get(t.author_id) || 0;
+    sourceCounts.set(t.author_id, count + (t.public_metrics?.retweet_count || 0) + (t.public_metrics?.like_count || 0));
+  });
+  
+  const top_sources = Array.from(sourceCounts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([id]) => {
+      const user = userMap.get(id);
+      return user ? `@${user.username}` : id;
+    });
+
+  const mediaMap = new Map<string, string>(
+    mediaItems
+      .map((m: any) => [m.media_key, m.url || m.preview_image_url])
+      .filter(([, url]) => !!url)
+  );
+
+  const stories = tweets
+    .map((tweet: any) => {
+      const author = userMap.get(tweet.author_id);
+      const images = (tweet.attachments?.media_keys ?? [])
+        .map((key: string) => mediaMap.get(key))
+        .filter(Boolean) as string[];
+
+      let text = tweet.text;
+      if (images.length > 0) {
+        text = text.replace(/\s*https:\/\/t\.co\/\S+$/, "").trim();
+      }
+
+      return {
+        id: tweet.id,
+        author: author?.name ?? "Unknown",
+        username: author?.username ?? "",
+        text,
+        images,
+        url: `https://x.com/${author?.username ?? "x"}/status/${tweet.id}`,
+        likes: tweet.public_metrics?.like_count ?? 0,
+        retweets: tweet.public_metrics?.retweet_count ?? 0,
+        created_at: tweet.created_at,
+      };
+    })
+    .sort((a: any, b: any) => (b.likes + b.retweets * 2) - (a.likes + a.retweets * 2));
+
+  // Extract insights for this category
+  const insights = extractInsights(stories);
+
+  return {
+    stories,
+    insights,
+    top_sources,
+    fetched_at: new Date().toISOString(),
+  };
 };
 
 Deno.serve(async (req: Request) => {
@@ -88,98 +229,36 @@ Deno.serve(async (req: Request) => {
       .eq("date", today)
       .maybeSingle();
 
-    if (cached && Array.isArray(cached.stories) && cached.stories.length > 0) {
+    if (cached && cached.openclaw && cached.openclaw.stories?.length > 0) {
       return new Response(JSON.stringify(cached), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // ── Fetch from X API v2 (single request per day) ─────────────────────────
-    // Request 20 to have a pool to filter from — after content filtering,
-    // we return the top 10 emerging-tech posts ranked by engagement.
-    const apiUrl =
-      `https://api.twitter.com/2/tweets/search/recent` +
-      `?query=${encodeURIComponent(ACCOUNT_QUERY)}` +
-      `&max_results=20` +
-      `&tweet.fields=created_at,author_id,public_metrics,text,attachments` +
-      `&expansions=author_id,attachments.media_keys` +
-      `&user.fields=name,username` +
-      `&media.fields=url,preview_image_url,type`;
-
-    const res = await fetch(apiUrl, {
-      headers: { Authorization: `Bearer ${xBearerToken}` },
+    // Fetch all categories
+    const results: Record<string, CategoryStories> = {};
+    const fetchPromises = Object.keys(CATEGORIES).map(async (category) => {
+      const stories = await fetchCategoryTweets(category as keyof typeof CATEGORIES, xBearerToken);
+      results[category] = {
+        stories,
+        fetched_at: new Date().toISOString(),
+      };
     });
 
-    if (res.status === 429) {
-      return new Response(
-        JSON.stringify({ error: "X API rate limit — free tier allows 1 request per 15 minutes. Wait a moment and try again." }),
-        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-    if (!res.ok) {
-      const errText = await res.text();
-      throw new Error(`X API error ${res.status}: ${errText}`);
-    }
-
-    const data = await res.json();
-    const tweets: any[] = data.data ?? [];
-    const users: any[] = data.includes?.users ?? [];
-    const mediaItems: any[] = data.includes?.media ?? [];
-
-    const userMap = new Map<string, { name: string; username: string }>(
-      users.map((u: any) => [u.id, { name: u.name, username: u.username }])
-    );
-
-    // Map media_key → URL (photo url, or video preview image)
-    const mediaMap = new Map<string, string>(
-      mediaItems
-        .map((m: any) => [m.media_key, m.url || m.preview_image_url])
-        .filter(([, url]) => !!url)
-    );
-
-    const stories = tweets
-      .map((tweet: any) => {
-        const author = userMap.get(tweet.author_id);
-        const images = (tweet.attachments?.media_keys ?? [])
-          .map((key: string) => mediaMap.get(key))
-          .filter(Boolean) as string[];
-
-        // Strip trailing t.co media link — it's the attached image, shown separately
-        let text = tweet.text;
-        if (images.length > 0) {
-          text = text.replace(/\s*https:\/\/t\.co\/\S+$/, "").trim();
-        }
-
-        return {
-          id: tweet.id,
-          author: author?.name ?? "Unknown",
-          username: author?.username ?? "",
-          text,
-          images,
-          url: `https://x.com/${author?.username ?? "x"}/status/${tweet.id}`,
-          likes: tweet.public_metrics?.like_count ?? 0,
-          retweets: tweet.public_metrics?.retweet_count ?? 0,
-          created_at: tweet.created_at,
-        };
-      })
-      // Keep only informational emerging-tech content; drop cynical/political posts
-      .filter((t: any) => isTechContent(t.text))
-      // Rank by engagement (retweets weighted 2x — stronger signal of value)
-      .sort((a: any, b: any) => (b.likes + b.retweets * 2) - (a.likes + a.retweets * 2))
-      .slice(0, 10);
+    await Promise.all(fetchPromises);
 
     // Cache via service role (shared row, one fetch per day)
     const serviceClient = createClient(supabaseUrl, serviceRoleKey);
     const { data: inserted } = await serviceClient
       .from("daily_news")
       .upsert(
-        { date: today, stories, fetched_at: new Date().toISOString() },
+        { date: today, ...results, fetched_at: new Date().toISOString() },
         { onConflict: "date" }
       )
       .select()
       .single();
 
-    return new Response(JSON.stringify(inserted ?? { date: today, stories }), {
+    return new Response(JSON.stringify(inserted ?? { date: today, ...results }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error: any) {
