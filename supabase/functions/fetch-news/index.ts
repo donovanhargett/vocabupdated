@@ -50,16 +50,16 @@ const CATEGORIES: Record<
     xQueries: [
       '"openclaw" OR "open claw" OR @openclawai -is:retweet lang:en',
     ],
-    subreddits: ["openclaw"],
-    hnKeywords: ["openclaw", "open claw"],
+    subreddits: ["openclaw", "ArtificialIntelligence", "LocalLLaMA", "ChatGPT"],
+    hnKeywords: ["openclaw", "open claw", "ai agent"],
     briefPrompt:
       "OpenClaw AI platform — agent framework, skills, deployment, community updates",
   },
   biotech: {
     name: "Biotech",
     xQueries: [
-      "(CRISPR OR gene therapy OR mRNA OR FDA approval OR clinical trial) (biotech OR pharma) -is:retweet lang:en",
-      "(drug discovery OR gene editing OR cell therapy OR biomanufacturing) -is:retweet lang:en",
+      "CRISPR OR gene therapy OR mRNA OR FDA approval OR clinical trial -is:retweet lang:en",
+      "drug discovery OR gene editing OR cell therapy OR biotech -is:retweet lang:en",
     ],
     subreddits: ["biotech", "genomics", "labrats", "bioinformatics"],
     hnKeywords: [
@@ -78,8 +78,8 @@ const CATEGORIES: Record<
   neurotech: {
     name: "Neurotech",
     xQueries: [
-      "(neuralink OR brain-computer interface OR BCI OR neural implant OR neuroprosthetic OR EEG) -is:retweet lang:en",
-      "(neurostimulation OR optogenetics OR brain mapping OR connectome) -is:retweet lang:en",
+      "neuralink OR brain-computer interface OR BCI OR neural implant -is:retweet lang:en",
+      "neurostimulation OR EEG OR brain mapping OR connectome -is:retweet lang:en",
     ],
     subreddits: ["neurotechnology", "neuralink", "neuroscience", "BCI"],
     hnKeywords: [
@@ -97,8 +97,8 @@ const CATEGORIES: Record<
   intelligence: {
     name: "Intelligence",
     xQueries: [
-      "(cognitive enhancement OR nootropics OR IQ research OR fluid intelligence) -is:retweet lang:en",
-      "(neuroplasticity OR brain training OR cognitive science OR working memory) -is:retweet lang:en",
+      "cognitive enhancement OR nootropics OR IQ research OR fluid intelligence -is:retweet lang:en",
+      "neuroplasticity OR brain training OR cognitive science -is:retweet lang:en",
     ],
     subreddits: [
       "cognitivescience",
@@ -120,8 +120,8 @@ const CATEGORIES: Record<
   general: {
     name: "General Tech",
     xQueries: [
-      '("AI agent" OR "autonomous AI" OR "open source AI" OR LLM OR GPT) (launch OR release OR update OR breakthrough) -is:retweet lang:en',
-      "(startup OR YC OR funding OR Series) (AI OR ML OR tech) -is:retweet lang:en",
+      "AI agent OR autonomous AI OR open source AI OR LLM OR GPT -is:retweet lang:en",
+      "startup funding OR YC OR Series A OR tech launch -is:retweet lang:en",
     ],
     subreddits: ["technology", "programming", "machinelearning", "artificial"],
     hnKeywords: [
@@ -138,8 +138,8 @@ const CATEGORIES: Record<
   hrv: {
     name: "Heart Rate Variability",
     xQueries: [
-      '("heart rate variability" OR HRV OR "vagal tone" OR "autonomic nervous system") -is:retweet lang:en',
-      "(HRV training OR HRV biofeedback OR parasympathetic OR WHOOP OR Oura) (health OR recovery OR stress) -is:retweet lang:en",
+      "heart rate variability OR HRV OR vagal tone OR autonomic -is:retweet lang:en",
+      "HRV training OR HRV biofeedback OR WHOOP OR Oura -is:retweet lang:en",
     ],
     subreddits: [
       "hrv",
@@ -147,6 +147,8 @@ const CATEGORIES: Record<
       "biohacking",
       "whoop",
       "ouraring",
+      "Fitness",
+      "health",
     ],
     hnKeywords: [
       "heart rate variability",
@@ -161,21 +163,55 @@ const CATEGORIES: Record<
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// X / TWITTER SOURCE
+// X / TWITTER SOURCE (OAuth 2.0 with Client Credentials)
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Get OAuth 2.0 access token using client credentials
+const getXAccessToken = async (): Promise<string | null> => {
+  const consumerKey = Deno.env.get("X_CONSUMER_KEY");
+  const consumerSecret = Deno.env.get("X_CONSUMER_SECRET");
+  
+  if (!consumerKey || !consumerSecret) {
+    return Deno.env.get("X_BEARER_TOKEN") ?? null;
+  }
+  
+  try {
+    const credentials = btoa(`${consumerKey}:${consumerSecret}`);
+    const res = await fetch("https://api.twitter.com/2/oauth2/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        Authorization: `Basic ${credentials}`,
+      },
+      body: "grant_type=client_credentials",
+    });
+    
+    if (!res.ok) {
+      console.error(`X OAuth failed ${res.status}: ${await res.text()}`);
+      return Deno.env.get("X_BEARER_TOKEN") ?? null;
+    }
+    
+    const data = await res.json();
+    return data.access_token ?? null;
+  } catch (e) {
+    console.error("X OAuth error:", e);
+    return Deno.env.get("X_BEARER_TOKEN") ?? null;
+  }
+};
+
 const fetchX = async (queries: string[]): Promise<RawSource[]> => {
-  const token = Deno.env.get("X_BEARER_TOKEN");
-  if (!token) {
-    console.warn("X_BEARER_TOKEN not set, skipping X");
+  const accessToken = await getXAccessToken();
+  if (!accessToken) {
+    console.warn("No X access token available, skipping X");
     return [];
   }
 
   const allStories: RawSource[] = [];
 
+  // Try v2 recent search first (requires elevated access)
   for (const query of queries) {
     try {
-      const url =
+      let url =
         `https://api.twitter.com/2/tweets/search/recent` +
         `?query=${encodeURIComponent(query)}` +
         `&max_results=15` +
@@ -184,12 +220,37 @@ const fetchX = async (queries: string[]): Promise<RawSource[]> => {
         `&expansions=author_id` +
         `&user.fields=name,username`;
 
-      const res = await fetch(url, {
-        headers: { Authorization: `Bearer ${token}` },
+      let res = await fetch(url, {
+        headers: { Authorization: `Bearer ${accessToken}` },
       });
 
+      // If v2 fails (likely no elevated access), try v1.1 search
       if (!res.ok) {
-        console.error(`X API ${res.status}: ${await res.text()}`);
+        console.warn(`X v2 failed ${res.status}, trying v1.1`);
+        url = `https://api.twitter.com/1.1/search/tweets.json?q=${encodeURIComponent(query)}&result_type=popular&count=15`;
+        res = await fetch(url, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        
+        if (!res.ok) {
+          console.error(`X v1.1 also failed ${res.status}: ${await res.text()}`);
+          continue;
+        }
+        
+        const v1data = await res.json();
+        const tweets = v1data.statuses ?? [];
+        
+        for (const t of tweets) {
+          allStories.push({
+            title: "",
+            snippet: t.text?.replace(/\s*https:\/\/t\.co\/\S+$/g, "").trim() ?? "",
+            url: `https://twitter.com/${t.user?.screen_name}/status/${t.id_str}`,
+            source: "X",
+            author: `@${t.user?.screen_name ?? "unknown"} (${t.user?.name ?? ""})`,
+            engagement: (t.retweet_count ?? 0) * 2 + (t.favorite_count ?? 0),
+            created_at: t.created_at,
+          });
+        }
         continue;
       }
 
@@ -232,14 +293,23 @@ const fetchRedditPosts = async (subreddits: string[]): Promise<RawSource[]> => {
 
   for (const sub of subreddits) {
     try {
-      const res = await fetch(
+      // Try hot first, then new as fallback
+      let res = await fetch(
         `https://www.reddit.com/r/${sub}/hot.json?limit=15&t=day`,
         { headers: { "User-Agent": "VocabUpdated/2.0 (news aggregator)" } }
       );
 
       if (!res.ok) {
-        console.warn(`Reddit r/${sub} returned ${res.status}`);
-        continue;
+        // Try new posts as fallback
+        console.warn(`Reddit r/${sub} hot returned ${res.status}, trying new`);
+        res = await fetch(
+          `https://www.reddit.com/r/${sub}/new.json?limit=15`,
+          { headers: { "User-Agent": "VocabUpdated/2.0 (news aggregator)" } }
+        );
+        if (!res.ok) {
+          console.warn(`Reddit r/${sub} also failed: ${res.status}`);
+          continue;
+        }
       }
 
       const data = await res.json();
