@@ -68,18 +68,8 @@ Deno.serve(async (req: Request) => {
 
     const today = getDateString();
 
-    // Return cached result for today
-    const { data: cached } = await userClient
-      .from("daily_ph_products")
-      .select("*")
-      .eq("date", today)
-      .maybeSingle();
-
-    if (cached && Array.isArray(cached.products) && cached.products.length > 0) {
-      return new Response(JSON.stringify(cached), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    // Always fetch fresh data - no caching for daily updates
+    // (User can manually refresh to get latest)
 
     const { data: settings } = await userClient
       .from("user_settings")

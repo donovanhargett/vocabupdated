@@ -170,13 +170,20 @@ const CATEGORIES: Record<
 const getXAccessToken = async (): Promise<string | null> => {
   const consumerKey = Deno.env.get("X_CONSUMER_KEY");
   const consumerSecret = Deno.env.get("X_CONSUMER_SECRET");
+  const bearerToken = Deno.env.get("X_BEARER_TOKEN");
+  
+  console.log("X_DEBUG: consumerKey set:", !!consumerKey);
+  console.log("X_DEBUG: consumerSecret set:", !!consumerSecret);
+  console.log("X_DEBUG: bearerToken set:", !!bearerToken);
   
   if (!consumerKey || !consumerSecret) {
-    return Deno.env.get("X_BEARER_TOKEN") ?? null;
+    console.log("X_DEBUG: No OAuth credentials, using bearer token");
+    return bearerToken ?? null;
   }
   
   try {
     const credentials = btoa(`${consumerKey}:${consumerSecret}`);
+    console.log("X_DEBUG: Requesting OAuth token...");
     const res = await fetch("https://api.twitter.com/2/oauth2/token", {
       method: "POST",
       headers: {
@@ -187,15 +194,17 @@ const getXAccessToken = async (): Promise<string | null> => {
     });
     
     if (!res.ok) {
-      console.error(`X OAuth failed ${res.status}: ${await res.text()}`);
-      return Deno.env.get("X_BEARER_TOKEN") ?? null;
+      const errText = await res.text();
+      console.error(`X OAuth failed ${res.status}: ${errText}`);
+      return bearerToken ?? null;
     }
     
     const data = await res.json();
+    console.log("X_DEBUG: OAuth token obtained:", data.access_token ? "YES" : "NO");
     return data.access_token ?? null;
   } catch (e) {
     console.error("X OAuth error:", e);
-    return Deno.env.get("X_BEARER_TOKEN") ?? null;
+    return bearerToken ?? null;
   }
 };
 
@@ -285,35 +294,58 @@ const fetchX = async (queries: string[]): Promise<RawSource[]> => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// REDDIT SOURCE
+// REDDIT SOURCE (via old.reddit.com - less restrictive)
 // ─────────────────────────────────────────────────────────────────────────────
 
 const fetchRedditPosts = async (subreddits: string[]): Promise<RawSource[]> => {
   const allStories: RawSource[] = [];
 
+  console.log("Reddit (old): Fetching from:", subreddits.join(", "));
+  
   for (const sub of subreddits) {
     try {
-      // Try hot first, then new as fallback
+      // Try old.reddit.com first (more permissive)
       let res = await fetch(
-        `https://www.reddit.com/r/${sub}/hot.json?limit=15&t=day`,
-        { headers: { "User-Agent": "VocabUpdated/2.0 (news aggregator)" } }
+        `https://old.reddit.com/r/${sub}/hot.json?limit=15`,
+        { 
+          headers: { 
+            "User-Agent": "Mozilla/5.0 (compatible; VocabUpdated/2.0)",
+          } 
+        }
       );
 
       if (!res.ok) {
-        // Try new posts as fallback
-        console.warn(`Reddit r/${sub} hot returned ${res.status}, trying new`);
+        // Fallback to Pushshift
+        console.warn(`old.reddit r/${sub} returned ${res.status}, trying Pushshift`);
         res = await fetch(
-          `https://www.reddit.com/r/${sub}/new.json?limit=15`,
-          { headers: { "User-Agent": "VocabUpdated/2.0 (news aggregator)" } }
+          `https://api.pushshift.io/reddit/search/submission/?subreddit=${sub}&sort=hot&size=15`,
+          { headers: { "User-Agent": "VocabUpdated/2.0" } }
         );
+        
         if (!res.ok) {
-          console.warn(`Reddit r/${sub} also failed: ${res.status}`);
+          console.warn(`Pushshift also failed: ${res.status}`);
           continue;
         }
+        
+        const psData = await res.json();
+        const psPosts = psData.data ?? [];
+        for (const p of psPosts) {
+          allStories.push({
+            title: p.title,
+            snippet: p.selftext ? p.selftext.slice(0, 600) : "",
+            url: p.full_link || `https://reddit.com${p.permalink}`,
+            source: `Reddit r/${sub}`,
+            author: p.author,
+            engagement: p.score ?? 0,
+            created_at: new Date(p.created_utc * 1000).toISOString(),
+          });
+        }
+        continue;
       }
 
       const data = await res.json();
       const posts: any[] = data.data?.children ?? [];
+      console.log(`old.reddit r/${sub}: ${posts.length} posts`);
 
       for (const p of posts) {
         const d = p.data;
@@ -321,11 +353,9 @@ const fetchRedditPosts = async (subreddits: string[]): Promise<RawSource[]> => {
         allStories.push({
           title: d.title,
           snippet: d.selftext ? d.selftext.slice(0, 600) : "",
-          url: d.url?.startsWith("https://www.reddit.com")
-            ? d.url
-            : `https://www.reddit.com${d.permalink}`,
+          url: d.url,
           source: `Reddit r/${sub}`,
-          author: `u/${d.author}`,
+          author: d.author,
           engagement: d.score ?? 0,
           created_at: new Date((d.created_utc ?? 0) * 1000).toISOString(),
         });
@@ -482,18 +512,24 @@ const fetchCategory = async (
   const config = CATEGORIES[key];
   const allSources: RawSource[] = [];
 
-  // Fetch all sources in parallel
+  // Fetch all sources - prioritize Reddit since X needs paid API
   const [xResults, redditResults, hnResults] = await Promise.all([
-    fetchX(config.xQueries),
-    fetchRedditPosts(config.subreddits),
-    fetchHN(config.hnKeywords),
+    fetchX(config.xQueries).catch(e => { console.error("X error:", e); return []; }),
+    fetchRedditPosts(config.subreddits).catch(e => { console.error("Reddit error:", e); return []; }),
+    fetchHN(config.hnKeywords).catch(e => { console.error("HN error:", e); return []; }),
   ]);
 
   console.log(
-    `[${key}] X: ${xResults.length}, Reddit: ${redditResults.length}, HN: ${hnResults.length}`
+    `[${key}] Sources: X=${xResults.length}, Reddit=${redditResults.length}, HN=${hnResults.length}`
   );
 
-  allSources.push(...xResults, ...redditResults, ...hnResults);
+  // Combine all sources - prioritize Reddit, then X, then HN
+  allSources.push(...redditResults, ...xResults, ...hnResults);
+  
+  // If still no sources after trying everything, return empty (don't show placeholders)
+  if (allSources.length === 0) {
+    console.warn(`[${key}] No sources fetched from any API`);
+  }
 
   // Deduplicate by similar text
   const seen = new Set<string>();
