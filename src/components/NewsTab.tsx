@@ -86,7 +86,7 @@ export const NewsTab = () => {
   const [news, setNews] = useState<DailyNews | null>(null);
   const [newsLoading, setNewsLoading] = useState(true);
   const [newsError, setNewsError] = useState<string | null>(null);
-  const [activeCategory, setActiveCategory] = useState<string>('all');
+  const [activeCategory, setActiveCategory] = useState<string>('openclaw');
 
   const [ph, setPh] = useState<DailyPH | null>(null);
   const [phLoading, setPhLoading] = useState(true);
@@ -224,16 +224,6 @@ export const NewsTab = () => {
 
       {/* ── Category Tabs ────────────────────────────────────────────────────── */}
       <div className="flex flex-wrap gap-2 pb-2">
-        <button
-          onClick={() => setActiveCategory('all')}
-          className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-            activeCategory === 'all'
-              ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900'
-              : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
-          }`}
-        >
-          All
-        </button>
         {CATEGORIES.map(cat => (
           <button
             key={cat.key}
@@ -262,21 +252,6 @@ export const NewsTab = () => {
           <button onClick={fetchNews} className="mt-3 text-sm text-red-500 hover:underline">
             Try again
           </button>
-        </div>
-      ) : activeCategory === 'all' ? (
-        <div className="space-y-8">
-          {CATEGORIES.map(cat => {
-            const brief = news?.[cat.key as keyof DailyNews] as CategoryBrief | undefined;
-            if (!brief?.summary && (!brief?.highlights?.length)) return null;
-            return (
-              <div key={cat.key} className="space-y-4">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                  <span>{cat.emoji}</span> {cat.name}
-                </h3>
-                {renderBrief(cat, brief)}
-              </div>
-            );
-          })}
         </div>
       ) : (
         CATEGORIES.filter(c => c.key === activeCategory).map(cat => {

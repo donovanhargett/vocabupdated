@@ -59,46 +59,6 @@ interface DailyContent {
   topic_feynman: string;
 }
 
-// Tiger Mom quotes of the day - unfiltered
-const TIGER_MOM_QUOTES = [
-  "You're not tired. You're lazy. Stop making excuses.",
-  "Other kids aren't complaining. Why are you? Because you know you can do better.",
-  "I don't care if you're tired. You think I worked 80 hours a week so you could quit at 7pm?",
-  "Your friend isn't busy. They're just not as committed as you should be.",
-  "Quit being mediocre. It's a choice, and you're choosing wrong.",
-  "I'm not your friend. I'm your mother. Friends let you fail. I don't.",
-  "You think this is hard? Wait until you're supporting yourself.",
-  "I didn't survive two wars and immigrate with $200 so you could 'try your best.'",
-  "Perfect is the minimum. Anything less is embarrassing.",
-  "You're confusing 'fair' with 'easy.' Life isn't fair. Get over it.",
-  "Every time you say 'I can't,' I hear 'I won't.' Same thing.",
-  "Other kids figured this out at age 6. You're how old now?",
-  "I'm not being mean. I'm being honest. You're the one who can't handle it.",
-  "Your feelings don't change facts. You're underperforming.",
-  "Success isn't optional. It's the only option I accept.",
-  "You want to quit? Fine. But don't come crying to me when you're stuck.",
-  "You're not special. Everyone's kid gets a trophy. Winners earn them.",
-  "I don't praise effort. I praise results. Effort is the baseline.",
-  "You think I'm tough? Wait until the real world gets ahold of you.",
-  "I believe in you when you don't believe in yourself. That's why you hate me.",
-  "Quit being soft. The world doesn't care about your feelings.",
-  "Disappointment is a choice. Stop disappointing me.",
-  "You have potential? Prove it. Potential without results is nothing.",
-  "You're not tired. You wasted energy on something stupid.",
-  "I'm not your enemy. Your low standards are.",
-  "Do you want to be average? Because that's exactly what you're headed for.",
-  "Failure is feedback. You're not getting either.",
-  "Your 'best' is lazy. I know what your best actually looks like.",
-  "Other people want this opportunity. You'd give it away?",
-  "Stop protecting your ego. Protect your future instead.",
-];
-
-const getTigerMomQuote = () => {
-  const today = new Date();
-  const dayOfYear = Math.floor((today.getTime() - new Date(today.getFullYear(), 0, 0).getTime()) / (1000 * 60 * 60 * 24));
-  return TIGER_MOM_QUOTES[dayOfYear % TIGER_MOM_QUOTES.length];
-};
-
 const TIGER_TASKS = [
   "No music today. Sit with your thoughts. That discomfort is the point.",
   "Eat every meal without your phone on the table. All of them.",

@@ -43,6 +43,8 @@ const CATEGORIES: Record<
     subreddits: string[];
     hnKeywords: string[];
     briefPrompt: string;
+    rssFeeds?: string[];
+    rssKeywords?: string[];
   }
 > = {
   openclaw: {
@@ -68,10 +70,20 @@ const CATEGORIES: Record<
   },
   intelligence: {
     name: "Intelligence",
-    xQueries: ["cognitive enhancement OR nootropics OR IQ"],
-    subreddits: ["cognitivescience", "nootropics", "psychology", "inteligence"],
-    hnKeywords: ["cognitive", "intelligence", "nootropics", "brain"],
-    briefPrompt: "Intelligence & cognition — cognitive enhancement, brain training, nootropics",
+    xQueries: ['"g factor" OR "general intelligence" OR "IQ heritability" OR "cognitive ability GWAS"'],
+    subreddits: ["cognitivescience", "psychology", "genetics"],
+    hnKeywords: ["g factor", "general intelligence", "iq heritability", "cognitive ability", "behavioral genetics"],
+    briefPrompt: "Intelligence research — g factor, general intelligence, IQ heritability, behavioral genetics, cognitive ability, GWAS, psychometrics",
+    rssFeeds: [
+      "https://stuartritchie.substack.com/feed",
+      "https://razib.substack.com/feed",
+      "https://marginalrevolution.com/feed",
+      "https://gwern.net/atom.xml",
+      "https://rss.sciencedirect.com/publication/science/01602896",
+      "https://pubmed.ncbi.nlm.nih.gov/rss/search/?term=g+factor+general+intelligence+heritability+cognitive+ability&format=rss&limit=15",
+      "https://www.biorxiv.org/search/cognitive+ability+intelligence+behavioral+genetics?src=rss",
+    ],
+    rssKeywords: ["intelligence", "iq", "g factor", "cognitive", "heritability", "gwas", "genetic", "psychometric", "fluid intelligence", "mental ability", "behavioral genetics", "brain", "cowen", "ritchie", "khan"],
   },
   general: {
     name: "General Tech",
@@ -454,7 +466,7 @@ Only valid JSON, no markdown fences.`,
     return {
       summary: parsed.summary || "",
       highlights: Array.isArray(parsed.highlights)
-        ? parsed.highlights.slice(0, 5)
+        ? parsed.highlights.slice(0, 3)
         : [],
     };
   } catch (e) {
@@ -475,6 +487,78 @@ Only valid JSON, no markdown fences.`,
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
+// CUSTOM RSS FEEDS (Substack, journals, PubMed, bioRxiv, etc.)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const fetchCustomRSS = async (feeds: string[], keywords: string[]): Promise<RawSource[]> => {
+  const allStories: RawSource[] = [];
+
+  for (const feedUrl of feeds) {
+    try {
+      const res = await fetch(feedUrl, {
+        headers: {
+          "User-Agent": "Mozilla/5.0",
+          "Accept": "application/rss+xml, application/atom+xml, application/xml, text/xml",
+        },
+      });
+
+      if (!res.ok) {
+        console.warn(`RSS ${feedUrl}: ${res.status}`);
+        continue;
+      }
+
+      const xml = await res.text();
+
+      // Parse both RSS <item> and Atom <entry> tags
+      const rssItems = xml.match(/<item>([\s\S]*?)<\/item>/g) ?? [];
+      const atomItems = xml.match(/<entry>([\s\S]*?)<\/entry>/g) ?? [];
+      const items = [...rssItems, ...atomItems];
+
+      const hostname = new URL(feedUrl).hostname.replace(/^(www|rss)\./, "");
+      console.log(`RSS ${hostname}: ${items.length} items`);
+
+      for (const item of items.slice(0, 12)) {
+        const titleMatch = item.match(/<title[^>]*><!\[CDATA\[([\s\S]*?)\]\]><\/title>|<title[^>]*>([\s\S]*?)<\/title>/);
+        const linkRSS = item.match(/<link>(.*?)<\/link>/)?.[1]?.trim();
+        const linkAtom = item.match(/<link[^>]+href="([^"]+)"/)?.[1];
+        const dateMatch = item.match(/<pubDate>(.*?)<\/pubDate>|<updated>(.*?)<\/updated>/);
+        const authorMatch = item.match(/<author><name>([\s\S]*?)<\/name>|<dc:creator><!\[CDATA\[([\s\S]*?)\]\]><\/dc:creator>|<dc:creator>([\s\S]*?)<\/dc:creator>/);
+
+        const title = (titleMatch?.[1] ?? titleMatch?.[2] ?? "").replace(/<[^>]+>/g, "").trim();
+        const link = linkRSS ?? linkAtom ?? "";
+        const date = dateMatch?.[1] ?? dateMatch?.[2] ?? "";
+        const author = (authorMatch?.[1] ?? authorMatch?.[2] ?? authorMatch?.[3] ?? "").trim();
+
+        if (!title || title === "[deleted]" || title === "-") continue;
+
+        // Filter by keywords — skip if keywords provided and none match
+        if (keywords.length > 0) {
+          const titleLower = title.toLowerCase();
+          const matches = keywords.some(k => titleLower.includes(k.toLowerCase()));
+          // For known intelligence-specific sources, bypass keyword filter
+          const isSpecificSource = hostname.includes("stuartritchie") || hostname.includes("razib") || hostname.includes("sciencedirect") || hostname.includes("pubmed") || hostname.includes("biorxiv");
+          if (!matches && !isSpecificSource) continue;
+        }
+
+        allStories.push({
+          title,
+          snippet: "",
+          url: link,
+          source: hostname,
+          author,
+          engagement: 2, // slight boost over generic Google News
+          created_at: date ? new Date(date).toISOString() : new Date().toISOString(),
+        });
+      }
+    } catch (e) {
+      console.error(`RSS feed error ${feedUrl}:`, e);
+    }
+  }
+
+  return allStories;
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 // FETCH CATEGORY (all sources → brief)
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -484,19 +568,22 @@ const fetchCategory = async (
   const config = CATEGORIES[key];
   const allSources: RawSource[] = [];
 
-  // Fetch all sources - prioritize Google News (reliable), then HN
-  const [xResults, googleResults, hnResults] = await Promise.all([
+  // Fetch all sources in parallel
+  const [xResults, googleResults, hnResults, rssResults] = await Promise.all([
     fetchX(config.xQueries).catch(e => { console.error("X error:", e); return []; }),
     fetchGoogleNews(config.hnKeywords).catch(e => { console.error("Google error:", e); return []; }),
     fetchHN(config.hnKeywords).catch(e => { console.error("HN error:", e); return []; }),
+    config.rssFeeds?.length
+      ? fetchCustomRSS(config.rssFeeds, config.rssKeywords ?? []).catch(e => { console.error("RSS error:", e); return []; })
+      : Promise.resolve([] as RawSource[]),
   ]);
 
   console.log(
-    `[${key}] Sources: X=${xResults.length}, Google=${googleResults.length}, HN=${hnResults.length}`
+    `[${key}] Sources: X=${xResults.length}, Google=${googleResults.length}, HN=${hnResults.length}, RSS=${rssResults.length}`
   );
 
-  // Combine all sources - prioritize Google News, then X, then HN
-  allSources.push(...googleResults, ...xResults, ...hnResults);
+  // Combine all sources — RSS/academic first (highest quality), then Google News, then X, then HN
+  allSources.push(...rssResults, ...googleResults, ...xResults, ...hnResults);
   
   // If still no sources after trying everything, return empty (don't show placeholders)
   if (allSources.length === 0) {
