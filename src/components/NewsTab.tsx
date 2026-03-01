@@ -309,55 +309,75 @@ export const NewsTab = () => {
                 href={product.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="block bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700 hover:border-orange-300 dark:hover:border-orange-600 hover:shadow-lg transition-all group"
+                className="block bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700 hover:border-orange-300 dark:hover:border-orange-600 hover:shadow-md transition-all group"
               >
-                <div className="flex items-start gap-4">
-                  <div className="w-10 h-10 rounded-lg bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center text-orange-600 dark:text-orange-400 font-bold text-lg shrink-0">
-                    {i + 1}
-                  </div>
-                  <div className="flex-1 min-w-0 space-y-2">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h4 className="font-semibold text-gray-900 dark:text-white">
-                        {product.name}
-                      </h4>
-                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${VERDICT_STYLE[product.verdict]}`}>
-                        {product.verdict}
-                      </span>
+                {/* ── Header: logo + name + votes (matches PH layout) */}
+                <div className="flex items-start gap-3">
+                  {product.thumbnail ? (
+                    <img
+                      src={product.thumbnail}
+                      alt={product.name}
+                      className="w-12 h-12 rounded-xl object-cover shrink-0"
+                    />
+                  ) : (
+                    <div className="w-12 h-12 rounded-xl bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center text-orange-600 dark:text-orange-400 font-bold text-lg shrink-0">
+                      {i + 1}
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <h4 className="font-semibold text-gray-900 dark:text-white group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors flex items-center gap-1.5">
+                          {product.name}
+                          <ExternalLink size={12} className="text-gray-400 shrink-0" />
+                        </h4>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{product.tagline}</p>
+                      </div>
                       {product.votes > 0 && (
-                        <span className="text-xs text-gray-400 dark:text-gray-500">▲ {product.votes}</span>
+                        <div className="flex flex-col items-center border border-gray-200 dark:border-gray-600 rounded-lg px-2.5 py-1 shrink-0 min-w-[44px]">
+                          <span className="text-gray-400 text-xs">▲</span>
+                          <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">{product.votes}</span>
+                        </div>
                       )}
                     </div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">{product.tagline}</p>
-                    {product.what_it_does && (
-                      <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
-                        {product.what_it_does}
-                      </p>
-                    )}
-                    <div className="flex flex-wrap gap-2">
-                      {product.ecosystem && (
-                        <span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-2 py-1 rounded">
-                          {product.ecosystem}
-                        </span>
-                      )}
-                      {product.revenue_model && (
-                        <span className="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-1 rounded">
-                          {product.revenue_model}
-                        </span>
-                      )}
-                      {product.comparable?.map(c => (
-                        <span key={c} className="text-xs bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 px-2 py-1 rounded">
-                          vs {c}
-                        </span>
-                      ))}
-                    </div>
-                    {product.key_risk && (
-                      <p className="text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/30 rounded px-2 py-1.5">
-                        ⚠ {product.key_risk}
-                      </p>
-                    )}
                   </div>
-                  <ArrowUpRight size={18} className="text-gray-400 group-hover:text-orange-500 transition-colors shrink-0" />
                 </div>
+
+                {/* ── Analysis */}
+                {product.what_it_does && (
+                  <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed mt-4">
+                    {product.what_it_does}
+                  </p>
+                )}
+
+                {/* ── Tags */}
+                <div className="flex flex-wrap gap-2 mt-3">
+                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${VERDICT_STYLE[product.verdict]}`}>
+                    {product.verdict}
+                  </span>
+                  {product.ecosystem && (
+                    <span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded-full">
+                      {product.ecosystem}
+                    </span>
+                  )}
+                  {product.revenue_model && (
+                    <span className="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-0.5 rounded-full">
+                      {product.revenue_model}
+                    </span>
+                  )}
+                  {product.comparable?.map(c => (
+                    <span key={c} className="text-xs bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-full">
+                      vs {c}
+                    </span>
+                  ))}
+                </div>
+
+                {/* ── Risk */}
+                {product.key_risk && (
+                  <p className="text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/30 rounded-lg px-3 py-2 mt-3">
+                    ⚠ {product.key_risk}
+                  </p>
+                )}
               </a>
             ))}
           </div>
