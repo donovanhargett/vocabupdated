@@ -59,44 +59,6 @@ interface DailyContent {
   topic_feynman: string;
 }
 
-const TIGER_TASKS = [
-  "No music today. Sit with your thoughts. That discomfort is the point.",
-  "Phone face-down for every meal today. Every one.",
-  "No podcasts during any commute or errand today. Think instead.",
-  "Write down three things you've been avoiding. Start the hardest one before noon.",
-  "No background music while you work. Silence is a skill.",
-  "Wake up 30 minutes earlier than you planned. Use it for something that matters.",
-  "Close every browser tab you don't need right now. All of them.",
-  "Finish one thing you've left half-done for more than a week.",
-  "Phone goes across the room at 10pm. No exceptions.",
-  "Read for 30 minutes with no interruptions. Not an article — a book.",
-  "Do the most uncomfortable task on your list before opening email.",
-  "No complaining today — not out loud, not in your head. Notice how often you try.",
-  "Message one person you've been meaning to reach out to. Do it now.",
-  "Take the stairs every time today.",
-  "Write a half-page on something you learned this week. By hand.",
-  "Eat lunch alone and in silence. No phone. Just eat and think.",
-  "90-minute deep work block. One task. Timer on. Nothing else.",
-  "20-minute walk with no headphones. No destination. Just think.",
-  "Clean one space you've been ignoring. Do it completely before anything else.",
-  "No snacking today. Only meals.",
-  "Write down what you spent money on yesterday. Be honest about it.",
-  "Before bed: write three honest assessments of today. Not gratitude — assessment.",
-  "Do something physically hard before 9am.",
-  "Send no unnecessary messages today. If it can wait, it doesn't get sent.",
-  "Spend 20 minutes practicing something you're bad at. No quitting early.",
-  "No streaming tonight. Use the time for something you keep putting off.",
-  "Memorize something today — a quote, a formula, a concept. Recite it before bed.",
-  "Make your bed, do your dishes, clear your desk. Before anything else.",
-  "Identify the task you've been rationalizing away. Do it today.",
-  "Write down one thing you said you'd do this week that you haven't. Do it today.",
-];
-
-const getTigerTask = () => {
-  const today = new Date();
-  const dayOfYear = Math.floor((today.getTime() - new Date(today.getFullYear(), 0, 0).getTime()) / (1000 * 60 * 60 * 24));
-  return TIGER_TASKS[(dayOfYear + 7) % TIGER_TASKS.length];
-};
 
 const getContentDate = () => {
   const now = new Date();
@@ -245,11 +207,6 @@ export const HomeTab = () => {
         <p className="text-xs font-bold text-orange-600 dark:text-orange-400 uppercase tracking-wider mb-2">🐯 Tiger Mom Wisdom</p>
         <p className="text-lg font-medium text-gray-800 dark:text-gray-100 italic">"{getTigerMomQuote()}"</p>
         <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">— Amy Chua</p>
-
-        <div className="mt-4 pt-4 border-t border-orange-200 dark:border-orange-800/40">
-          <p className="text-xs font-bold text-red-600 dark:text-red-400 uppercase tracking-wider mb-1.5">📋 Tiger Task of the Day</p>
-          <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{getTigerTask()}</p>
-        </div>
       </div>
 
       {/* ── Add New Word ──────────────────────────────────────────────────── */}
