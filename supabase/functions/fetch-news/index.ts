@@ -44,7 +44,6 @@ const CATEGORIES: Record<
     hnKeywords: string[];
     briefPrompt: string;
     rssFeeds?: string[];
-    rssKeywords?: string[];
   }
 > = {
   openclaw: {
@@ -67,6 +66,13 @@ const CATEGORIES: Record<
     subreddits: ["neurotechnology", "neuroscience", "neuralink", "cognitivescience"],
     hnKeywords: ["neuralink", "bci", "brain computer", "neuro"],
     briefPrompt: "Neurotechnology — brain-computer interfaces, neural implants, brain research",
+    rssFeeds: [
+      "https://www.nature.com/neuro.rss",
+      "https://iopscience.iop.org/journal/rss/1741-2552",
+      "https://ieeexplore.ieee.org/rss/TOC7333152.XML",
+      "https://pubmed.ncbi.nlm.nih.gov/rss/search/?term=brain-computer+interface+BCI+neural+prosthetics+neuralink+Synchron&format=rss&limit=15",
+      "https://www.biorxiv.org/search/brain-computer+interface+neural+prosthetics?src=rss",
+    ],
   },
   intelligence: {
     name: "Intelligence",
@@ -83,7 +89,6 @@ const CATEGORIES: Record<
       "https://pubmed.ncbi.nlm.nih.gov/rss/search/?term=g+factor+general+intelligence+heritability+cognitive+ability&format=rss&limit=15",
       "https://www.biorxiv.org/search/cognitive+ability+intelligence+behavioral+genetics?src=rss",
     ],
-    rssKeywords: ["intelligence", "iq", "g factor", "cognitive", "heritability", "gwas", "genetic", "psychometric", "fluid intelligence", "mental ability", "behavioral genetics", "brain", "cowen", "ritchie", "khan"],
   },
   general: {
     name: "General Tech",
@@ -490,7 +495,7 @@ Only valid JSON, no markdown fences.`,
 // CUSTOM RSS FEEDS (Substack, journals, PubMed, bioRxiv, etc.)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const fetchCustomRSS = async (feeds: string[], keywords: string[]): Promise<RawSource[]> => {
+const fetchCustomRSS = async (feeds: string[]): Promise<RawSource[]> => {
   const allStories: RawSource[] = [];
 
   for (const feedUrl of feeds) {
@@ -531,15 +536,7 @@ const fetchCustomRSS = async (feeds: string[], keywords: string[]): Promise<RawS
 
         if (!title || title === "[deleted]" || title === "-") continue;
 
-        // Filter by keywords — skip if keywords provided and none match
-        if (keywords.length > 0) {
-          const titleLower = title.toLowerCase();
-          const matches = keywords.some(k => titleLower.includes(k.toLowerCase()));
-          // For known intelligence-specific sources, bypass keyword filter
-          const isSpecificSource = hostname.includes("stuartritchie") || hostname.includes("razib") || hostname.includes("sciencedirect") || hostname.includes("pubmed") || hostname.includes("biorxiv");
-          if (!matches && !isSpecificSource) continue;
-        }
-
+        // All feeds in rssFeeds are hand-picked per category — trust them, no keyword filter
         allStories.push({
           title,
           snippet: "",
@@ -574,7 +571,7 @@ const fetchCategory = async (
     fetchGoogleNews(config.hnKeywords).catch(e => { console.error("Google error:", e); return []; }),
     fetchHN(config.hnKeywords).catch(e => { console.error("HN error:", e); return []; }),
     config.rssFeeds?.length
-      ? fetchCustomRSS(config.rssFeeds, config.rssKeywords ?? []).catch(e => { console.error("RSS error:", e); return []; })
+      ? fetchCustomRSS(config.rssFeeds).catch(e => { console.error("RSS error:", e); return []; })
       : Promise.resolve([] as RawSource[]),
   ]);
 

@@ -315,7 +315,7 @@ export const NewsTab = () => {
                   <div className="w-10 h-10 rounded-lg bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center text-orange-600 dark:text-orange-400 font-bold text-lg shrink-0">
                     {i + 1}
                   </div>
-                  <div className="flex-1 min-w-0">
+                  <div className="flex-1 min-w-0 space-y-2">
                     <div className="flex items-center gap-2 flex-wrap">
                       <h4 className="font-semibold text-gray-900 dark:text-white">
                         {product.name}
@@ -323,24 +323,37 @@ export const NewsTab = () => {
                       <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${VERDICT_STYLE[product.verdict]}`}>
                         {product.verdict}
                       </span>
+                      {product.votes > 0 && (
+                        <span className="text-xs text-gray-400 dark:text-gray-500">▲ {product.votes}</span>
+                      )}
                     </div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{product.tagline}</p>
-                    {product.one_liner && (
-                      <p className="text-xs text-gray-600 dark:text-gray-300 mt-2 font-medium">
-                        {product.one_liner}
+                    <p className="text-sm text-gray-500 dark:text-gray-400">{product.tagline}</p>
+                    {product.what_it_does && (
+                      <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+                        {product.what_it_does}
                       </p>
                     )}
-                    {product.ecosystem && (
-                      <div className="flex gap-2 mt-2">
+                    <div className="flex flex-wrap gap-2">
+                      {product.ecosystem && (
                         <span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-2 py-1 rounded">
                           {product.ecosystem}
                         </span>
-                        {product.revenue_model && (
-                          <span className="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-1 rounded">
-                            {product.revenue_model}
-                          </span>
-                        )}
-                      </div>
+                      )}
+                      {product.revenue_model && (
+                        <span className="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-1 rounded">
+                          {product.revenue_model}
+                        </span>
+                      )}
+                      {product.comparable?.map(c => (
+                        <span key={c} className="text-xs bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 px-2 py-1 rounded">
+                          vs {c}
+                        </span>
+                      ))}
+                    </div>
+                    {product.key_risk && (
+                      <p className="text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/30 rounded px-2 py-1.5">
+                        ⚠ {product.key_risk}
+                      </p>
                     )}
                   </div>
                   <ArrowUpRight size={18} className="text-gray-400 group-hover:text-orange-500 transition-colors shrink-0" />

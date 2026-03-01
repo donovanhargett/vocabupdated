@@ -148,19 +148,19 @@ Deno.serve(async (req: Request) => {
       (p: any) => !recentIds.has(String(p.id)) || p.votesCount > 500
     );
 
-    const pool = freshPosts.length >= 3 ? freshPosts : allPosts;
-    const top3 = pool
+    const pool = freshPosts.length >= 5 ? freshPosts : allPosts;
+    const top5 = pool
       .sort((a: any, b: any) => b.votesCount - a.votesCount)
-      .slice(0, 3);
+      .slice(0, 5);
 
-    if (top3.length === 0) {
+    if (top5.length === 0) {
       return new Response(JSON.stringify({ error: "No products found from Product Hunt" }), {
         status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     // Build concise summaries for the AI prompt
-    const productSummaries = top3.map((p: any) => ({
+    const productSummaries = top5.map((p: any) => ({
       name: p.name,
       tagline: p.tagline,
       description: (p.description || p.tagline || "").slice(0, 300),
@@ -194,7 +194,7 @@ Return a JSON object with a "products" key containing an array of objects — on
           },
           {
             role: "user",
-            content: `Give me the VC breakdown for these ${top3.length} products:\n${JSON.stringify(productSummaries, null, 2)}`,
+            content: `Give me the VC breakdown for these ${top5.length} products:\n${JSON.stringify(productSummaries, null, 2)}`,
           },
         ],
         response_format: { type: "json_object" },
@@ -210,7 +210,7 @@ Return a JSON object with a "products" key containing an array of objects — on
     const parsed = JSON.parse(openaiData.choices[0].message.content);
     const analyses: any[] = parsed.products || parsed.items || (Array.isArray(parsed) ? parsed : []);
 
-    const products = top3.map((p: any, i: number) => ({
+    const products = top5.map((p: any, i: number) => ({
       id: String(p.id),
       name: p.name,
       tagline: p.tagline,
