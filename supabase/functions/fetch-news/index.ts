@@ -167,15 +167,15 @@ const fetchX = async (queries: string[]): Promise<RawSource[]> => {
         res = await fetch(url, {
           headers: { Authorization: `Bearer ${accessToken}` },
         });
-        
+
         if (!res.ok) {
           console.error(`X v1.1 also failed ${res.status}: ${await res.text()}`);
           continue;
         }
-        
+
         const v1data = await res.json();
         const tweets = v1data.statuses ?? [];
-        
+
         for (const t of tweets) {
           allStories.push({
             title: "",

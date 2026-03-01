@@ -59,6 +59,85 @@ interface DailyContent {
   topic_feynman: string;
 }
 
+// Tiger Mom quotes of the day - unfiltered
+const TIGER_MOM_QUOTES = [
+  "You're not tired. You're lazy. Stop making excuses.",
+  "Other kids aren't complaining. Why are you? Because you know you can do better.",
+  "I don't care if you're tired. You think I worked 80 hours a week so you could quit at 7pm?",
+  "Your friend isn't busy. They're just not as committed as you should be.",
+  "Quit being mediocre. It's a choice, and you're choosing wrong.",
+  "I'm not your friend. I'm your mother. Friends let you fail. I don't.",
+  "You think this is hard? Wait until you're supporting yourself.",
+  "I didn't survive two wars and immigrate with $200 so you could 'try your best.'",
+  "Perfect is the minimum. Anything less is embarrassing.",
+  "You're confusing 'fair' with 'easy.' Life isn't fair. Get over it.",
+  "Every time you say 'I can't,' I hear 'I won't.' Same thing.",
+  "Other kids figured this out at age 6. You're how old now?",
+  "I'm not being mean. I'm being honest. You're the one who can't handle it.",
+  "Your feelings don't change facts. You're underperforming.",
+  "Success isn't optional. It's the only option I accept.",
+  "You want to quit? Fine. But don't come crying to me when you're stuck.",
+  "You're not special. Everyone's kid gets a trophy. Winners earn them.",
+  "I don't praise effort. I praise results. Effort is the baseline.",
+  "You think I'm tough? Wait until the real world gets ahold of you.",
+  "I believe in you when you don't believe in yourself. That's why you hate me.",
+  "Quit being soft. The world doesn't care about your feelings.",
+  "Disappointment is a choice. Stop disappointing me.",
+  "You have potential? Prove it. Potential without results is nothing.",
+  "You're not tired. You wasted energy on something stupid.",
+  "I'm not your enemy. Your low standards are.",
+  "Do you want to be average? Because that's exactly what you're headed for.",
+  "Failure is feedback. You're not getting either.",
+  "Your 'best' is lazy. I know what your best actually looks like.",
+  "Other people want this opportunity. You'd give it away?",
+  "Stop protecting your ego. Protect your future instead.",
+];
+
+const getTigerMomQuote = () => {
+  const today = new Date();
+  const dayOfYear = Math.floor((today.getTime() - new Date(today.getFullYear(), 0, 0).getTime()) / (1000 * 60 * 60 * 24));
+  return TIGER_MOM_QUOTES[dayOfYear % TIGER_MOM_QUOTES.length];
+};
+
+const TIGER_TASKS = [
+  "No music today. Sit with your thoughts. That discomfort is the point.",
+  "Eat every meal without your phone on the table. All of them.",
+  "No podcasts during any commute or errand today. Think instead.",
+  "Write down three things you've been avoiding. Start the first one before noon.",
+  "No background TV or music while you work. Silence is a skill.",
+  "Wake up 45 minutes earlier than you planned. Use it for something hard.",
+  "No food delivery today. Prepare every meal yourself, even if it's simple.",
+  "Close every browser tab you don't need right now. Stop hiding in distraction.",
+  "Finish one thing you've left half-done for more than a week.",
+  "No scrolling in bed tonight. Phone goes across the room before 10pm.",
+  "Read for 30 minutes with no interruptions. Not an article — a book.",
+  "Do the most uncomfortable task on your list before opening email.",
+  "No complaining today — not out loud, not in your head. Notice how often you try.",
+  "Call or message one person you've been avoiding. Do it before lunch.",
+  "Skip the elevator. Take the stairs every single time today.",
+  "Write a one-page summary of something you learned this week. By hand.",
+  "No alcohol today. Not even a little. You know why.",
+  "Eat lunch alone and in silence. No phone, no reading. Just eat.",
+  "Set a timer for 90 minutes and work on one thing with zero interruptions.",
+  "Go outside for a 20-minute walk with no headphones. Just walk.",
+  "Clean one area of your space you've been ignoring. Do it completely.",
+  "No snacking today. Three meals, nothing in between. That's it.",
+  "Write down what you actually spent money on yesterday. Then think about it.",
+  "Before bed, write three honest things about today — not gratitude, assessment.",
+  "Do 30 minutes of something physically difficult before 9am.",
+  "Send no unnecessary messages today. If it doesn't need to be said, don't say it.",
+  "Practice something you're bad at for 20 minutes without quitting early.",
+  "No streaming tonight. Read, think, plan, or sleep instead.",
+  "Memorize something today — a quote, a poem, a fact. Recite it tonight.",
+  "Make your bed, wash your dishes, and clean your desk before doing anything else.",
+];
+
+const getTigerTask = () => {
+  const today = new Date();
+  const dayOfYear = Math.floor((today.getTime() - new Date(today.getFullYear(), 0, 0).getTime()) / (1000 * 60 * 60 * 24));
+  return TIGER_TASKS[(dayOfYear + 7) % TIGER_TASKS.length];
+};
+
 const getContentDate = () => {
   const now = new Date();
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -206,6 +285,11 @@ export const HomeTab = () => {
         <p className="text-xs font-bold text-orange-600 dark:text-orange-400 uppercase tracking-wider mb-2">🐯 Tiger Mom Wisdom</p>
         <p className="text-lg font-medium text-gray-800 dark:text-gray-100 italic">"{getTigerMomQuote()}"</p>
         <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">— Amy Chua</p>
+
+        <div className="mt-4 pt-4 border-t border-orange-200 dark:border-orange-800/40">
+          <p className="text-xs font-bold text-red-600 dark:text-red-400 uppercase tracking-wider mb-1.5">📋 Tiger Task of the Day</p>
+          <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{getTigerTask()}</p>
+        </div>
       </div>
 
       {/* ── Add New Word ──────────────────────────────────────────────────── */}
